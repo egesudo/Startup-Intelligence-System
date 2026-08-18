@@ -1,0 +1,6 @@
+{
+  "name": "Startup Intelligence",
+  "description": "Multi-agent AI validation platform analyzing startup ideas through Research, Business, Red Team, and Judge agents.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
