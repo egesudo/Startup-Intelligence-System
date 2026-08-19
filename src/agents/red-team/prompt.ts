@@ -12,10 +12,9 @@ You are the RED TEAM AGENT in the Startup Intelligence multi-agent system.
 YOUR MISSION:
 - You are an adversarial analytical intelligence tasked with stress-testing and attempting to break the venture thesis.
 - Determine: "What could make this venture fail, and what evidence supports that concern?"
-- Challenge and evaluate claims made by:
-  1. The Founder (raw idea, problem, solution, assumptions, context)
-  2. The Research Agent (empirical findings, competitor profiles, market trends)
-  3. The Business Agent (unit economics, willingness-to-pay, pricing, distribution)
+- Ingest and directly cross-examine outputs from BOTH the Research Agent (empirical findings, competitor profiles, market trends) and the Business Agent (unit economics, willingness-to-pay, pricing, distribution channels).
+- Identify specific contradictions or unrealistic optimism between the Research findings and the Business model.
+- STRICT DOMAIN SPECIFICITY: Ground failure mechanisms in the specific operational, regulatory, and competitive realities of THIS exact venture's industry (e.g. FDA approval and clinical adoption for MedTech; bank sponsor reliance for FinTech; disintermediation for Marketplaces; developer churn for DevTools). Do not use generic failure commentary.
 - Your goal is NOT to make the founder feel confident or to be cynical for the sake of negativity. Your goal is rigorous, evidence-aware TRUTH.
 
 EPISTEMIC STANDARDS & EVIDENCE INTEGRITY:
@@ -47,6 +46,10 @@ OUTPUT:
 export function buildRedTeamAgentUserPrompt(params: {
   title: string;
   description: string;
+  agentRunId?: string;
+  researchAgentRunId?: string;
+  businessAgentRunId?: string;
+  verificationWarnings?: string[];
   rawIdea?: string;
   problem?: string | null;
   solution?: string | null;
@@ -83,7 +86,17 @@ export function buildRedTeamAgentUserPrompt(params: {
     `Q: ${q.question}\nA: ${q.answer || 'Not answered'}`
   ).join('\n\n');
 
+  const warningsContext = params.verificationWarnings && params.verificationWarnings.length > 0
+    ? `\n⚠️ UPSTREAM VERIFICATION WARNINGS:\n${params.verificationWarnings.map(w => `- ${w}`).join('\n')}\n`
+    : '';
+
   return `
+======================================================================
+AGENT RUN PROVENANCE: ${params.agentRunId || 'run_redteam_current'}
+UPSTREAM RUNS INHERITED: [Research: ${params.researchAgentRunId || 'N/A'}, Business: ${params.businessAgentRunId || 'N/A'}]
+EXECUTION STAGE: 3/4 (Adversarial Stress-Testing & Contradiction Audit)
+======================================================================
+${warningsContext}
 Execute an adversarial Red Team analysis on the following venture:
 
 ==================== 1. VENTURE INTAKE & FOUNDER THESIS ====================
@@ -128,17 +141,14 @@ ${businessAssumptions || 'None'}
 IDENTIFIED BUSINESS RISKS:
 ${businessRisks || 'None'}
 
-==================== ADVERSARIAL ATTACK INSTRUCTIONS ====================
-Analyze and challenge the venture across all 7 core modules:
-1. Challenged Claims: Target key assertions made by the founder, research, or business report.
-2. Critical Risks: Identify specific failure vectors with severity and riskType ('EVIDENCE_BACKED' vs 'HYPOTHESIS').
-3. Assumption Attacks: Attack high-impact unvalidated assumptions.
-4. Contradiction Detection: Surface real discrepancies between founder claims, research facts, and commercial models.
-5. Competitive Threats: Stress-test against direct rivals, indirect tools, and status-quo inertia.
-6. Failure Conditions: Define concrete, evidence-aware failure conditions.
-7. Decision-Changing Evidence: Highlight what specific evidence would dictate the future build/kill verdict.
-
-Return the result as structured JSON matching the RedTeamReport schema.
+==================== ADVERSARIAL CHAIN OF THOUGHT MANDATE ====================
+1. STEP 1 - CROSS-EXAMINE UPSTREAM CLAIMS: Target key assertions made by founder, research, and business.
+2. STEP 2 - STRESS-TEST RISKS: Identify specific failure vectors with severity and riskType ('EVIDENCE_BACKED' vs 'HYPOTHESIS').
+3. STEP 3 - ASSUMPTION ATTACKS: Attack high-impact unvalidated assumptions; specify what validates vs invalidates each.
+4. STEP 4 - CONTRADICTION SEARCH: Explicitly map real discrepancies between founder claims, research facts, and commercial models.
+5. STEP 5 - COMPETITIVE THREATS: Stress-test against direct rivals, indirect tools, and status-quo inertia.
+6. STEP 6 - FAILURE CONDITIONS: Define concrete, evidence-aware "If [condition], then [failure mode]" conditions.
+7. STEP 7 - STRUCTURED OUTPUT: Return the result as structured JSON matching the RedTeamReport schema.
 `.trim();
 }
 

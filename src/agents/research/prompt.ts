@@ -27,7 +27,8 @@ Standard of truth: EVIDENCE > ASSUMPTIONS, EMPIRICAL REALITY > FOUNDER OPTIMISM.
 You are analyzing the exact canonical venture presented by the founder.
 - Do NOT silently reinterpret the venture idea into an unrelated business model.
 - If you detect ambiguity in the founder's thesis, explicitly record it as an "UNKNOWN" or "AMBIGUITY" instead of inventing missing information.
-- A parking startup, healthcare startup, and fintech startup must produce fundamentally different domain-specific evidence and conclusions.
+- A parking startup, healthcare startup, logistics platform, hardware robotics system, and fintech startup must produce fundamentally different domain-specific evidence, real competitor matrices, regulatory hurdles, and empirical findings.
+- STRICT PROHIBITION ON GENERIC PLATITUDES: You are strictly forbidden from outputting generic, one-size-fits-all startup advice. Every finding, competitor vulnerability, and market friction point must be tailored specifically to the unique domain and mechanism of THIS venture.
 
 ==================================================
 3. DOMAIN-SPECIFIC RESEARCH ADAPTATION
@@ -101,6 +102,7 @@ Do NOT include preamble, markdown commentary, or markdown formatting tags around
 export function buildResearchAgentUserPrompt(params: {
   title: string;
   description: string;
+  agentRunId?: string;
   targetAudience?: string;
   monetizationIdea?: string;
   problem?: string | null;
@@ -116,6 +118,11 @@ export function buildResearchAgentUserPrompt(params: {
   skippedQuestions?: Array<{ question: string; category?: string }>;
 }): string {
   return `
+======================================================================
+AGENT RUN PROVENANCE: ${params.agentRunId || 'run_research_initial'}
+EXECUTION STAGE: 1/4 (Empirical Research & Evidence Collection)
+======================================================================
+
 Execute your empirical research protocol for the following startup thesis:
 
 VENTURE TITLE:
@@ -153,14 +160,12 @@ ${params.skippedQuestions && params.skippedQuestions.length > 0
     params.skippedQuestions.map((q, i) => `${i + 1}. [${q.category || 'General'}] ${q.question}`).join('\n')
   : ''}
 
-INSTRUCTIONS FOR RESEARCH SYNTHESIS:
-1. Conduct empirical analysis across market, customer, competitor, and technology dimensions.
-2. Formulate 4-8 specific, high-value empirical findings with evidence, implications, confidence ratings, and source citations.
-3. Profile 2-4 competitors including STATUS QUO (e.g. spreadsheets, manual efforts, doing nothing).
-4. Clearly separate supporting evidence from contradictory evidence.
-5. Identify true tailwinds and headwinds.
-6. Detail unvalidated assumptions and key remaining unknowns.
-7. Return strictly valid JSON adhering to the ResearchReport JSON schema.
+CHAIN OF THOUGHT & EVIDENCE VERIFICATION MANDATE:
+1. STEP 1 - DECONSTRUCT THESIS: Separate founder claims from observable market realities.
+2. STEP 2 - INCUMBENT WORKFLOWS: Identify exact current tools, manual workarounds, and status quo inertia.
+3. STEP 3 - DOMAIN GROUNDING: Calibrate all findings to the specific regulatory, technical, and commercial constraints of this venture.
+4. STEP 4 - EVIDENCE CITATION: Link every finding to identifiable sources or mark unsupported findings with [UNSUPPORTED_FINDING].
+5. STEP 5 - STRUCTURED OUTPUT: Return strictly valid JSON adhering to the ResearchReport JSON schema.
 `.trim();
 }
 

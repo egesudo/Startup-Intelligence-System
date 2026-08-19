@@ -46,6 +46,10 @@ export class RedTeamAgent implements IRedTeamAgent {
       const userPrompt = buildRedTeamAgentUserPrompt({
         title: input.ventureTitle,
         description: input.ventureDescription,
+        agentRunId: input.agentRunId,
+        researchAgentRunId: input.researchAgentRunId,
+        businessAgentRunId: input.businessAgentRunId,
+        verificationWarnings: input.verificationWarnings,
         rawIdea: input.rawIdea,
         problem: input.problem || null,
         solution: input.solution || null,

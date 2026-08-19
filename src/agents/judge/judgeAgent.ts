@@ -63,6 +63,11 @@ export class JudgeAgent implements IJudgeAgent {
       const userPrompt = buildJudgeAgentUserPrompt({
         title: input.ventureTitle,
         description: input.ventureDescription,
+        agentRunId: input.agentRunId,
+        researchAgentRunId: input.researchAgentRunId,
+        businessAgentRunId: input.businessAgentRunId,
+        redTeamAgentRunId: input.redTeamAgentRunId,
+        verificationWarnings: input.verificationWarnings,
         rawIdea: input.rawIdea,
         problem: input.problem || null,
         solution: input.solution || null,
@@ -137,10 +142,35 @@ export class JudgeAgent implements IJudgeAgent {
       estimatedDays: action.estimatedDays || 7
     }));
 
+    // Extract rawScoreInput if provided by LLM or deterministic engine
+    let rawScoreInput = undefined;
+    if (rawOutput?.rawScoreInput && typeof rawOutput.rawScoreInput === 'object') {
+      const r = rawOutput.rawScoreInput;
+      if (
+        typeof r.marketScoreRaw === 'number' ||
+        typeof r.businessScoreRaw === 'number' ||
+        typeof r.moatScoreRaw === 'number' ||
+        typeof r.riskScoreRaw === 'number'
+      ) {
+        rawScoreInput = {
+          marketScoreRaw: typeof r.marketScoreRaw === 'number' ? Math.max(0, Math.min(25, Math.round(r.marketScoreRaw))) : 15,
+          marketReasoning: String(r.marketReasoning || 'Market problem urgency & validation assessment.'),
+          businessScoreRaw: typeof r.businessScoreRaw === 'number' ? Math.max(0, Math.min(25, Math.round(r.businessScoreRaw))) : 15,
+          businessReasoning: String(r.businessReasoning || 'Business model & unit economics viability.'),
+          moatScoreRaw: typeof r.moatScoreRaw === 'number' ? Math.max(0, Math.min(25, Math.round(r.moatScoreRaw))) : 14,
+          moatReasoning: String(r.moatReasoning || 'Defensibility & competitive moat.'),
+          riskScoreRaw: typeof r.riskScoreRaw === 'number' ? Math.max(0, Math.min(25, Math.round(r.riskScoreRaw))) : 20,
+          riskReasoning: String(r.riskReasoning || 'Adversarial risk resilience & execution profile.')
+        };
+      }
+    }
+
     return {
       report: normalizedReport,
       recommendedActions,
       aiRecommendation: normalizedReport.aiRecommendation,
+      agentRunId: input.agentRunId,
+      rawScoreInput,
       meta: {
         sourcesConsultedCount: uniqueSources.length,
         findingsEvaluatedCount: (input.researchReport?.findings?.length || 0) + (input.businessReport?.assumptions?.length || 0) + (input.redTeamReport?.criticalRisks?.length || 0),
@@ -684,6 +714,29 @@ export class JudgeAgent implements IJudgeAgent {
         : (criticalUnknowns.map(u => u.statement)),
       whatShouldFounderDoNext: raw?.finalOutputIntegrity?.whatShouldFounderDoNext || `Recommendation is ${aiRecommendation}. Execute 3 priority empirical validation experiments prior to capital allocation.`
     };
+
+    // Evidence-derived raw dimensional score inputs
+    let rawScoreInput = undefined;
+    if (raw?.rawScoreInput && typeof raw.rawScoreInput === 'object') {
+      const r = raw.rawScoreInput;
+      if (
+        typeof r.marketScoreRaw === 'number' ||
+        typeof r.businessScoreRaw === 'number' ||
+        typeof r.moatScoreRaw === 'number' ||
+        typeof r.riskScoreRaw === 'number'
+      ) {
+        rawScoreInput = {
+          marketScoreRaw: typeof r.marketScoreRaw === 'number' ? Math.max(0, Math.min(25, Math.round(r.marketScoreRaw))) : 15,
+          marketReasoning: String(r.marketReasoning || 'Market problem urgency & validation assessment.'),
+          businessScoreRaw: typeof r.businessScoreRaw === 'number' ? Math.max(0, Math.min(25, Math.round(r.businessScoreRaw))) : 15,
+          businessReasoning: String(r.businessReasoning || 'Business model & unit economics viability.'),
+          moatScoreRaw: typeof r.moatScoreRaw === 'number' ? Math.max(0, Math.min(25, Math.round(r.moatScoreRaw))) : 14,
+          moatReasoning: String(r.moatReasoning || 'Defensibility & competitive moat.'),
+          riskScoreRaw: typeof r.riskScoreRaw === 'number' ? Math.max(0, Math.min(25, Math.round(r.riskScoreRaw))) : 20,
+          riskReasoning: String(r.riskReasoning || 'Adversarial risk resilience & execution profile.')
+        };
+      }
+    }
 
     return {
       executiveSummary,

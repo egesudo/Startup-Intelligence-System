@@ -37,6 +37,7 @@ export interface AgentExecutionState {
 
 export interface ResearchAgentInput {
   ventureId: string;
+  agentRunId?: string;
   ventureTitle: string;
   ventureDescription: string;
   targetAudience?: string;
@@ -63,6 +64,13 @@ export interface ResearchAgentOutput {
     evidenceStrength: 'LOW' | 'MEDIUM' | 'HIGH';
     executionTimeMs: number;
   };
+  agentRunId?: string;
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
+  };
 }
 
 export interface IResearchAgent {
@@ -76,6 +84,9 @@ export interface IResearchAgent {
 
 export interface BusinessAgentInput {
   ventureId: string;
+  agentRunId?: string;
+  researchAgentRunId?: string;
+  verificationWarnings?: string[];
   ventureTitle: string;
   ventureDescription: string;
   targetAudience?: string;
@@ -106,6 +117,13 @@ export interface BusinessAgentOutput {
     risksCount?: number;
     executionTimeMs: number;
   };
+  agentRunId?: string;
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
+  };
 }
 
 export interface IBusinessAgent {
@@ -119,6 +137,10 @@ export interface IBusinessAgent {
 
 export interface RedTeamAgentInput {
   ventureId: string;
+  agentRunId?: string;
+  researchAgentRunId?: string;
+  businessAgentRunId?: string;
+  verificationWarnings?: string[];
   ventureTitle: string;
   ventureDescription: string;
   targetAudience?: string;
@@ -152,6 +174,13 @@ export interface RedTeamAgentOutput {
     sourcesConsultedCount?: number;
     executionTimeMs: number;
   };
+  agentRunId?: string;
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
+  };
 }
 
 export interface IRedTeamAgent {
@@ -165,6 +194,11 @@ export interface IRedTeamAgent {
 
 export interface JudgeAgentInput {
   ventureId: string;
+  agentRunId?: string;
+  researchAgentRunId?: string;
+  businessAgentRunId?: string;
+  redTeamAgentRunId?: string;
+  verificationWarnings?: string[];
   ventureTitle: string;
   ventureDescription: string;
   targetAudience?: string;
@@ -198,6 +232,13 @@ export interface JudgeAgentOutput {
     uncertaintiesCount: number;
     confidence: ConfidenceLevel;
     executionTimeMs: number;
+  };
+  agentRunId?: string;
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
   };
   rawScoreInput?: {
     marketScoreRaw: number; // 0-25

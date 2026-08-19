@@ -9,6 +9,7 @@ import { ventureRepository } from '../db/repository';
 import { checkSupabaseConnection, isSupabaseConfigured } from '../db/supabase';
 import { pdfReportService, ReportArtifactType } from '../services/pdfReportService';
 import { getSupabaseEnvDiagnostics, logServerEnvDiagnostics } from '../utils/supabaseDiagnostics';
+import { sourceGroundingService } from '../services/sourceGroundingService';
 
 export const apiRouter = Router();
 
@@ -592,6 +593,31 @@ apiRouter.delete('/ventures/:id', async (req, res) => {
     res.json({ success });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Search Grounding & Source Verification via Gemini + Google Search
+apiRouter.post('/grounding/verify-source', async (req, res) => {
+  try {
+    const { sourceTitle, publisher, publishYear, archetype, query, extractedFact, ventureTitle } = req.body;
+    if (!sourceTitle && !query) {
+      return res.status(400).json({ error: 'sourceTitle or query is required for verification' });
+    }
+
+    const result = await sourceGroundingService.verifySource({
+      sourceTitle: sourceTitle || 'Market Benchmark',
+      publisher,
+      publishYear,
+      archetype,
+      query,
+      extractedFact,
+      ventureTitle
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('[API /grounding/verify-source] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to verify source with search grounding' });
   }
 });
 

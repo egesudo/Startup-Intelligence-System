@@ -40,6 +40,7 @@ export class ResearchAgent implements IResearchAgent {
       const userPrompt = buildResearchAgentUserPrompt({
         title: input.ventureTitle,
         description: input.ventureDescription,
+        agentRunId: input.agentRunId,
         targetAudience: input.targetAudience || input.targetCustomer || undefined,
         monetizationIdea: input.monetizationIdea || input.businessModel || undefined,
         problem: input.problem || null,

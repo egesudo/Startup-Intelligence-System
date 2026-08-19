@@ -801,11 +801,13 @@ export class PdfReportService {
       const risks = rep?.businessRisks || rep?.risks || [];
       const customer = rep?.customerAnalysis;
       const model = rep?.businessModel;
+      const commEco = model?.commercialEconomics || (rep as any)?.commercialEconomics;
+      const finAnalysis = commEco?.financialAnalysis;
       const competitors = rep?.competitiveLandscape || venture.researchReport?.competitors || [];
       const unknowns = rep?.unknowns || [];
       const sources = rep?.sources || venture.researchReport?.sources || [];
       const confidence = rep?.confidence || rep?.confidenceScore || 'HIGH';
-      const viabilityScore = 74; // Based on analyzed evidence
+      const viabilityScore = commEco?.estimatedGrossMargin ? Math.min(95, Math.max(50, Math.round(commEco.estimatedGrossMargin * 0.95))) : 74;
 
       // ─────────────────────────────────────────────────────────────
       // HEADER
@@ -843,7 +845,7 @@ export class PdfReportService {
         font: fontBold,
         color: rgb(0.4, 0.5, 0.45)
       });
-      page.drawText('HIGH', {
+      page.drawText(viabilityScore >= 70 ? 'HIGH' : (viabilityScore >= 50 ? 'MODERATE' : 'VULNERABLE'), {
         x: margin + 16,
         y: y - 38,
         size: 15,
@@ -881,15 +883,22 @@ export class PdfReportService {
         color: confidence === 'HIGH' ? rgb(0.12, 0.58, 0.35) : rgb(0.85, 0.45, 0.1)
       });
 
-      // Top 3 strongest commercial findings
-      page.drawText('• High gross margin profile (80%+) typical of software-enabled workflow solutions.', {
+      // Top 2 commercial findings
+      const summaryBullet1 = commEco?.archetypeDisplayName
+        ? `• Archetype: ${commEco.archetypeDisplayName} (${commEco.estimatedGrossMargin || 80}% est. gross margin).`
+        : '• High gross margin profile (80%+) typical of software-enabled workflow solutions.';
+      const summaryBullet2 = finAnalysis?.economicUnit?.unitRevenue
+        ? `• Target Economic Unit: ${finAnalysis.economicUnit.unitName} at ${finAnalysis.economicUnit.unitRevenue}.`
+        : '• Clear separation between daily operator (User) and Department Director (Buyer).';
+
+      page.drawText(summaryBullet1.slice(0, 85), {
         x: margin + 16,
         y: y - 54,
         size: 7.5,
         font,
         color: rgb(0.2, 0.28, 0.25)
       });
-      page.drawText('• Clear separation between daily operator (User) and Department Director (Buyer).', {
+      page.drawText(summaryBullet2.slice(0, 85), {
         x: margin + 16,
         y: y - 66,
         size: 7.5,
@@ -1113,22 +1122,28 @@ export class PdfReportService {
       drawSectionTitle('6. Pricing & Economics');
       checkNewPage(85);
 
+      const targetPrice = commEco?.targetPricePoint || finAnalysis?.economicUnit?.unitRevenue || '$299 - $899 / month';
+      const grossMarginPct = commEco?.estimatedGrossMargin || finAnalysis?.grossProfit?.grossMarginPercentage || 80;
+      const cacVal = finAnalysis?.cac?.calculatedCAC ? `$${finAnalysis.cac.calculatedCAC.toLocaleString()}` : (commEco?.cac ? `$${commEco.cac}` : 'Pending discovery pilot');
+      const paybackVal = finAnalysis?.cac?.paybackPeriodMonths ? `${finAnalysis.cac.paybackPeriodMonths} Months` : (commEco?.paybackMonths ? `${commEco.paybackMonths} Months` : '< 8 Months');
+      const ltvCacVal = finAnalysis?.ltv?.ltvToCacRatio ? `${finAnalysis.ltv.ltvToCacRatio}x` : '> 3.0x';
+
       const econItems = [
-        { label: 'Target Price Point', value: '$299 - $899 / month', status: 'ESTIMATED', color: rgb(0.85, 0.45, 0.1) },
-        { label: 'Estimated Gross Margin', value: '80% - 85%', status: 'ESTIMATED', color: rgb(0.85, 0.45, 0.1) },
-        { label: 'Customer Acq. Cost (CAC)', value: 'Pending discovery pilot', status: 'ASSUMPTION', color: rgb(0.85, 0.2, 0.2) },
-        { label: 'Payback Period Target', value: '< 6 Months', status: 'ASSUMPTION', color: rgb(0.85, 0.2, 0.2) },
-        { label: 'Projected LTV / CAC', value: '> 3.0x at scale', status: 'ASSUMPTION', color: rgb(0.85, 0.2, 0.2) }
+        { label: 'Target Price Point', value: targetPrice, status: finAnalysis?.economicUnit?.evidenceLabel || 'ESTIMATED', color: rgb(0.85, 0.45, 0.1) },
+        { label: 'Estimated Gross Margin', value: `${grossMarginPct}%`, status: finAnalysis?.grossProfit?.evidenceLabel || 'ESTIMATED', color: rgb(0.85, 0.45, 0.1) },
+        { label: 'Customer Acq. Cost (CAC)', value: cacVal, status: finAnalysis?.cac?.evidenceLabel || 'ASSUMPTION', color: rgb(0.85, 0.2, 0.2) },
+        { label: 'Payback Period Target', value: paybackVal, status: finAnalysis?.cac?.evidenceLabel || 'ASSUMPTION', color: rgb(0.85, 0.2, 0.2) },
+        { label: 'Projected LTV / CAC', value: ltvCacVal, status: finAnalysis?.ltv?.evidenceLabel || 'ASSUMPTION', color: rgb(0.85, 0.2, 0.2) }
       ];
 
       for (const item of econItems) {
         page.drawText(item.label, { x: margin + 10, y: y - 10, size: 8, font: fontBold, color: rgb(0.2, 0.25, 0.3) });
-        page.drawText(item.value, { x: margin + 200, y: y - 10, size: 8, font, color: rgb(0.15, 0.18, 0.22) });
+        page.drawText(String(item.value).slice(0, 35), { x: margin + 200, y: y - 10, size: 8, font, color: rgb(0.15, 0.18, 0.22) });
         page.drawText(`[${item.status}]`, { x: margin + 390, y: y - 10, size: 7.5, font: fontBold, color: item.color });
         y -= 14;
       }
 
-      page.drawText('Status: Unit economics partially modeled — requires pilot transaction validation.', {
+      page.drawText('Status: Unit economics modeled bottom-up — requires pilot transaction validation.', {
         x: margin + 10,
         y: y - 10,
         size: 7,
@@ -1198,10 +1213,12 @@ export class PdfReportService {
       checkNewPage(95);
 
       // Economics Bars
+      const gmFraction = Math.max(0.1, Math.min(0.95, grossMarginPct / 100));
+      const cogsFraction = Math.round((1 - gmFraction) * 100) / 100;
       const visualEconBars = [
         { label: 'PROJECTED REVENUE BASE', fraction: 1.0, text: '100% Gross Revenue', color: rgb(0.15, 0.45, 0.85) },
-        { label: 'ESTIMATED COST STRUCTURE (COGS)', fraction: 0.20, text: '20% Hosting / API', color: rgb(0.85, 0.35, 0.2) },
-        { label: 'ESTIMATED GROSS MARGIN', fraction: 0.80, text: '80% Retained Margin', color: rgb(0.12, 0.58, 0.35) }
+        { label: 'ESTIMATED COST STRUCTURE (COGS)', fraction: cogsFraction, text: `${Math.round(cogsFraction * 100)}% Direct Delivery & Infra`, color: rgb(0.85, 0.35, 0.2) },
+        { label: 'ESTIMATED GROSS MARGIN', fraction: gmFraction, text: `${Math.round(gmFraction * 100)}% Retained Margin`, color: rgb(0.12, 0.58, 0.35) }
       ];
 
       for (const bar of visualEconBars) {
@@ -1234,7 +1251,7 @@ export class PdfReportService {
 
       // Qualitative Score Overview
       y -= 4;
-      page.drawText('COMMERCIAL INDICATORS:  Viability: 74/100 (HIGH)  |  Customer Demand: MEDIUM  |  Monetization: HIGH', {
+      page.drawText(`COMMERCIAL INDICATORS:  Viability: ${viabilityScore}/100 (${confidence})  |  Pricing Power: ${commEco?.pricingPower || 'MODERATE'}  |  Gross Margin: ${Math.round(gmFraction * 100)}%`, {
         x: margin + 4,
         y: y - 8,
         size: 7.5,

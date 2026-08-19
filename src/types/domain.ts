@@ -95,6 +95,26 @@ export interface Source {
   relatedFindings?: string[];
 }
 
+export interface GroundedWebSource {
+  title: string;
+  url: string;
+  domain?: string;
+  snippet?: string;
+}
+
+export interface SourceGroundingVerificationResult {
+  sourceTitle: string;
+  status: 'VERIFIED' | 'UPDATED_WITH_LIVE_DATA' | 'APPROXIMATE_MATCH' | 'UNVERIFIED';
+  credibilityRating: 'HIGH' | 'MEDIUM' | 'LOW';
+  verificationSummary: string;
+  currentUpdates: string[];
+  groundedWebSources: GroundedWebSource[];
+  liveBenchmarkValue?: string;
+  searchQueriesUsed: string[];
+  checkedAt: string;
+  suggestedFollowUpQuery?: string;
+}
+
 /**
  * 2. Research finding entity
  */
@@ -109,6 +129,7 @@ export interface ResearchFinding {
   confidence: ConfidenceLevel;
   sources: Source[];
   sourceIds?: string[];
+  citationIds?: string[];
   implication: string;
 }
 
@@ -142,6 +163,13 @@ export interface ResearchReportMetadata {
 export interface ResearchReport {
   id: string;
   ventureId: string;
+  agentRunId?: string;
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
+  };
   createdAt: string;
   executiveSummary: string;
   confidenceScore: ConfidenceLevel;
@@ -296,6 +324,244 @@ export interface PricingEvidenceItem {
   sourceIds?: string[];
 }
 
+export interface WaterfallStep {
+  label: string;
+  percentage: number;
+  amountNormalized: string;
+  stepType: 'gross_revenue' | 'cogs' | 'gross_profit' | 'cac' | 'retention_ops' | 'net_contribution';
+  color?: string;
+  description?: string;
+}
+
+export interface CogsItem {
+  name: string;
+  percentage: number;
+  costAmount: string;
+  description: string;
+}
+
+export interface PricingTierDetail {
+  tierName: string;
+  price: string;
+  billingPeriod: string;
+  targetSegment: string;
+  keyFeatures: string[];
+  marginEstimate: string;
+}
+
+export interface EconomicMetricClassification {
+  metric: string;
+  value: string;
+  status: 'FACT' | 'ESTIMATED' | 'ASSUMPTION';
+  rationale: string;
+  validationMethod?: string;
+}
+
+export type FinancialEvidenceLabel = 'VERIFIED' | 'BENCHMARK' | 'FOUNDER_INPUT' | 'ASSUMPTION' | 'UNKNOWN' | 'ESTIMATED';
+
+export interface EconomicUnitSpecification {
+  unitType: 'CUSTOMER_MONTH' | 'CUSTOMER_YEAR' | 'GMV_TRANSACTION' | 'ORDER' | 'SUBSCRIBER_YEAR' | 'DEVICE' | 'PROJECT' | 'USAGE_EVENT' | 'OTHER';
+  unitName: string;
+  justification: string;
+  revenuePerUnit: string;
+  revenuePerUnitNumeric: number;
+  revenueEvidenceLabel: FinancialEvidenceLabel;
+}
+
+export interface VentureFinancialMetricItem {
+  name: string;
+  value: string;
+  numericValue?: number;
+  evidenceLabel: FinancialEvidenceLabel;
+  sourceOrBenchmark?: string;
+  calculationRationale: string;
+}
+
+export interface VentureFinancialAnalysis {
+  // 1. Business Model
+  businessModelOverview: string;
+  archetype: string;
+  archetypeDisplayName: string;
+
+  // 2. Target Customer
+  targetCustomerSegment: string;
+  economicBuyer: string;
+  buyingMotivation: string;
+
+  // 3. Revenue & Pricing
+  pricingStructure: string;
+  pricingTiers: PricingTierDetail[];
+  revenueDrivers: string[];
+
+  // 4. Economic Unit
+  economicUnit: EconomicUnitSpecification;
+
+  // 5. COGS (Itemized & Calculated)
+  cogsItems: CogsItem[];
+  totalCogsPerUnit: string;
+  totalCogsPercentage: number;
+
+  // 6. Gross Profit & Gross Margin (Calculated: Gross Profit = Revenue - COGS, Gross Margin = GP / Revenue)
+  grossProfitPerUnit: string;
+  grossMarginPercentage: number;
+  grossMarginRange: string;
+  grossMarginEvidenceLabel: FinancialEvidenceLabel;
+
+  // 7. Sales & Marketing
+  salesAndMarketingChannels: string[];
+  variableMarketingCostPerAcquisition: string;
+
+  // 8. CAC (Calculated: Acquisition Cost / New Customers)
+  cacEstimate: string;
+  cacCalculationBasis: string;
+  cacPaybackMonths: number;
+  cacEvidenceLabel: FinancialEvidenceLabel;
+
+  // 9. Retention / Customer Success
+  retentionMechanism: string;
+  servicingCostPerCustomer: string;
+  customerSuccessLaborPct: number;
+
+  // 10. LTV / Churn (Calculated when applicable)
+  estimatedAnnualChurnPct?: number;
+  estimatedCustomerLifespanMonths?: number;
+  ltvEstimate: string;
+  ltvToCacRatio: string;
+  ltvEvidenceLabel: FinancialEvidenceLabel;
+
+  // 11. Contribution Profit & Contribution Margin (Calculated: GP - Variable Acquisition & Servicing)
+  variableServicingCostPerUnit: string;
+  contributionProfitPerUnit: string;
+  contributionMarginPercentage: number;
+  contributionMarginEvidenceLabel: FinancialEvidenceLabel;
+  contributionWaterfall: WaterfallStep[];
+
+  // 12. Key Financial Assumptions
+  keyFinancialAssumptions: Array<{
+    metric: string;
+    assumedValue: string;
+    evidenceLabel: FinancialEvidenceLabel;
+    sensitivity: 'HIGH' | 'MEDIUM' | 'LOW';
+    validationPlan: string;
+  }>;
+
+  // 13. Sources & Evidence
+  sourcesAndEvidence: Source[];
+
+  // 14. Financial Risks (Top 3)
+  financialRisks: Array<{
+    riskTitle: string;
+    impact: 'CATASTROPHIC' | 'HIGH' | 'MEDIUM' | 'LOW';
+    evidence: string;
+    mitigationStrategy: string;
+  }>;
+
+  // 15. Most Important Financial Unknown
+  mostImportantFinancialUnknown: {
+    question: string;
+    impactOnViability: string;
+    targetBenchmarkToHit: string;
+  };
+
+  // 16. Recommended Validation Experiment
+  recommendedValidationExperiment: {
+    title: string;
+    hypothesis: string;
+    protocol: string;
+    successThreshold: string;
+    timeframe: string;
+  };
+
+  // 17. Business Viability Conclusion
+  businessViabilityConclusion: {
+    whoPays: string;
+    whyTheyPay: string;
+    canItMakeMoney: string;
+    whatRisksRemain: string;
+    whatFounderShouldDoNext: string;
+    verdict: 'COMMERCIALLY_VIABLE_WITH_GATES' | 'HIGH_FRICTION_MODEL' | 'UNIT_ECONOMICS_CONSTRAINED';
+  };
+
+  // Strategic & Technical In-Depth Evaluation (Founder-Oriented)
+  strategicRevenueAnalysis?: {
+    valueCaptureMechanism: string;
+    pricingElasticityEvaluation: string;
+    expansionLevers: string[];
+    pricingPowerRating: 'STRONG' | 'MODERATE' | 'WEAK';
+    pricingPowerRationale: string;
+  };
+  technicalCostEvaluation?: {
+    architecturalDrivers: string;
+    infrastructureComplexity: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+    cogsOptimizationStrategies: string[];
+    scalabilityBottleneck: string;
+  };
+  growthAndRetentionReview?: {
+    acquisitionChannelDynamics: string;
+    salesCycleFriction: string;
+    retentionAndMoatAssessment: string;
+    servicingLaborRisk: string;
+  };
+  profitabilityVerdictAndFounderPlan?: {
+    viabilityScore: 'HIGH_POTENTIAL' | 'VIABLE_WITH_GATES' | 'HIGH_FRICTION_MARGIN_RISK';
+    executiveSummary: string;
+    breakEvenMilestone: string;
+    immediateFounderAction: string;
+  };
+
+  // Integrity & Audit Flags
+  ventureDifferentiationTestPassed: boolean;
+  financialConsistencyCheckPassed: boolean;
+}
+
+export interface CommercialEconomicsStructure {
+  archetype: 'B2B_SAAS' | 'MARKETPLACE' | 'D2C' | 'USAGE_BASED' | 'AGENCY_TECH' | 'HEALTHCARE_TECH' | 'FINTECH' | 'AI_INFRA' | 'HARDWARE_ENABLED' | string;
+  archetypeDisplayName?: string;
+  targetPricePoint: string;
+  pricingCadence: string;
+  estimatedGrossMargin: number;
+  grossMarginRange: string;
+  cogsBreakdown: CogsItem[];
+  cacEstimate: string;
+  ltvEstimate: string;
+  cacToLtvRatio: string;
+  paybackMonths: number;
+  capitalIntensity: 'LOW_CAPEX_SOFTWARE' | 'MODERATE_SEED' | 'WORKING_CAPITAL_INTENSIVE' | 'HEAVY_CAPEX' | string;
+  capitalIntensityDescription: string;
+  pricingPower: 'WEAK' | 'MODERATE' | 'STRONG';
+  waterfallSteps: WaterfallStep[];
+  pricingTiers: PricingTierDetail[];
+  economicClassifications: EconomicMetricClassification[];
+  overallUnitEconomicsStatus: string;
+  economicJustification: string;
+  strategicRevenueAnalysis?: {
+    valueCaptureMechanism: string;
+    pricingElasticityEvaluation: string;
+    expansionLevers: string[];
+    pricingPowerRating: 'STRONG' | 'MODERATE' | 'WEAK';
+    pricingPowerRationale: string;
+  };
+  technicalCostEvaluation?: {
+    architecturalDrivers: string;
+    infrastructureComplexity: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL';
+    cogsOptimizationStrategies: string[];
+    scalabilityBottleneck: string;
+  };
+  growthAndRetentionReview?: {
+    acquisitionChannelDynamics: string;
+    salesCycleFriction: string;
+    retentionAndMoatAssessment: string;
+    servicingLaborRisk: string;
+  };
+  profitabilityVerdictAndFounderPlan?: {
+    viabilityScore: 'HIGH_POTENTIAL' | 'VIABLE_WITH_GATES' | 'HIGH_FRICTION_MARGIN_RISK';
+    executiveSummary: string;
+    breakEvenMilestone: string;
+    immediateFounderAction: string;
+  };
+  financialAnalysis?: VentureFinancialAnalysis;
+}
+
 /**
  * 13. Business Model & Unit Economics Hypothesis
  */
@@ -312,6 +578,7 @@ export interface BusinessModelStructure {
     capitalRequirement?: string;
     notes?: string;
   };
+  commercialEconomics?: CommercialEconomicsStructure;
 }
 
 /**
@@ -344,6 +611,13 @@ export interface BusinessReportMetadata {
 export interface BusinessReport {
   id: string;
   ventureId: string;
+  agentRunId?: string;
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
+  };
   createdAt: string;
   executiveSummary: string;
   confidence: ConfidenceLevel;
@@ -514,6 +788,13 @@ export interface RedTeamReportMetadata {
 export interface RedTeamReport {
   id: string;
   ventureId: string;
+  agentRunId?: string;
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
+  };
   createdAt: string;
   executiveSummary: string;
   confidence: ConfidenceLevel;
@@ -742,6 +1023,13 @@ export interface FinalOutputIntegrity {
 export interface JudgeReport {
   id: string;
   ventureId: string;
+  agentRunId?: string;
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
+  };
   createdAt: string;
   executiveSummary: string;
   coreVentureThesis: CoreVentureThesis;
@@ -758,6 +1046,7 @@ export interface JudgeReport {
   nextActions: NextAction[]; // Exactly 3
   sourceReferences: Source[];
   evidenceTraceability: EvidenceTraceability[];
+  evidenceVerificationReport?: EvidenceVerificationReport;
   finalOutputIntegrity?: FinalOutputIntegrity;
   metadata?: JudgeReportMetadata;
 
@@ -771,6 +1060,86 @@ export interface JudgeReport {
   }>;
   uncertaintyNotice?: string;
   keyDivergences?: string[];
+}
+
+/**
+ * 23. Agent Execution & Evidence Verification Protocol Types
+ */
+export type VerificationStatus = 'VERIFIED' | 'PARTIALLY_VERIFIED' | 'UNVERIFIED' | 'FAILED';
+
+export type EvidenceVerificationLevel = 
+  | 'LEVEL_1_SELF_REPORTED' 
+  | 'LEVEL_2_OUTPUT_EVIDENCE' 
+  | 'LEVEL_3_EXECUTION_EVIDENCE' 
+  | 'LEVEL_4_TRACEABLE_EVIDENCE_CHAIN';
+
+export interface AgentRunRecord {
+  agentRunId: string;
+  agentName: 'RESEARCH' | 'BUSINESS' | 'RED_TEAM' | 'JUDGE';
+  ventureId: string;
+  startedAt: string;
+  completedAt?: string;
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  previousAgentRunIds: string[];
+  inputReferences: Record<string, any>;
+  outputReferenceId?: string;
+  externalToolCalls?: Array<{
+    tool: string;
+    params?: any;
+    result?: any;
+    timestamp: string;
+  }>;
+  sourceReferences: string[];
+  verificationStatus: VerificationStatus;
+  warnings?: string[];
+  chainOfThought?: {
+    inputEvaluation: string;
+    precedingAgentCritique?: string;
+    reasoningSteps: string[];
+    conclusion: string;
+  };
+}
+
+export interface AgentChainStatus {
+  research: {
+    execution_verified: boolean | 'UNKNOWN';
+    sources_verified: boolean | 'UNKNOWN';
+    findings_traceable: boolean | 'UNKNOWN';
+  };
+  business: {
+    research_input_verified: boolean | 'UNKNOWN';
+    claims_traceable: boolean | 'UNKNOWN';
+    additional_research_verified: boolean | 'UNKNOWN';
+  };
+  red_team: {
+    previous_inputs_verified: boolean | 'UNKNOWN';
+    contradiction_search_verified: boolean | 'UNKNOWN';
+    claims_challenged: boolean | 'UNKNOWN';
+  };
+  judge: {
+    all_agent_inputs_verified: boolean | 'UNKNOWN';
+    evidence_chain_verified: boolean | 'UNKNOWN';
+    decision_gate_passed: boolean | 'UNKNOWN';
+  };
+}
+
+export interface EvidenceVerificationReport {
+  researchExecution: VerificationStatus;
+  externalSources: VerificationStatus;
+  findingToSourceTraceability: VerificationStatus;
+  businessInheritance: VerificationStatus;
+  redTeamInheritance: VerificationStatus;
+  contradictionSearch: VerificationStatus;
+  judgeEvidenceChain: VerificationStatus;
+  overallEvidenceIntegrity: VerificationStatus;
+  decisionGatePassed: boolean;
+  downgradedFromBuild: boolean;
+  warnings: string[];
+  auditTrail: Array<{
+    step: string;
+    status: VerificationStatus;
+    notes: string;
+  }>;
 }
 
 /**
@@ -840,4 +1209,7 @@ export interface Venture {
   decision?: Decision;
   nextActions: NextAction[];
   collaborationRecords?: CollaborationRecord[];
+  agentRunRecords?: AgentRunRecord[];
+  agentChainStatus?: AgentChainStatus;
+  evidenceVerificationReport?: EvidenceVerificationReport;
 }

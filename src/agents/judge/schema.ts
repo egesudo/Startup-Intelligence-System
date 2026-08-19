@@ -177,6 +177,29 @@ export const JudgeReportGeminiSchema = {
         },
         required: ['dimension', 'bullCase', 'bearCase', 'judgeVerdict']
       }
+    },
+    rawScoreInput: {
+      type: Type.OBJECT,
+      properties: {
+        marketScoreRaw: { type: Type.NUMBER, description: 'Market problem urgency & pain validation score from 0 to 25 based strictly on empirical evidence.' },
+        marketReasoning: { type: Type.STRING },
+        businessScoreRaw: { type: Type.NUMBER, description: 'Business model, gross margin & unit economics score from 0 to 25.' },
+        businessReasoning: { type: Type.STRING },
+        moatScoreRaw: { type: Type.NUMBER, description: 'Defensibility moat & competitive barriers score from 0 to 25.' },
+        moatReasoning: { type: Type.STRING },
+        riskScoreRaw: { type: Type.NUMBER, description: 'Adversarial risk resilience & execution score from 0 to 25 (penalized for lethal flaws).' },
+        riskReasoning: { type: Type.STRING }
+      },
+      required: [
+        'marketScoreRaw',
+        'marketReasoning',
+        'businessScoreRaw',
+        'businessReasoning',
+        'moatScoreRaw',
+        'moatReasoning',
+        'riskScoreRaw',
+        'riskReasoning'
+      ]
     }
   },
   required: [

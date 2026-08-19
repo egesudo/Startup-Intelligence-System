@@ -4,7 +4,12 @@
  * Coordinates the sequential DAG workflow across the 4 specialized agents:
  * Venture -> Research Agent -> Business Agent -> Red Team Agent -> Judge Agent -> Scoring Engine
  * 
- * Manages structured data handoffs, preserves intermediate reports, and tracks execution states.
+ * Enforces:
+ * 1. Independent Evidence Verification Layer (Levels 1 - 4)
+ * 2. Chain of Thought (CoT) Preambles and Reasoning Extraction
+ * 3. Provenance Tracking (agent_run_id generation and cross-agent linking)
+ * 4. Hard Decision Gate (restricting high-confidence BUILD recommendations when research is unverified)
+ * 5. Structured Data Handoffs and Persistence
  */
 
 import {
@@ -23,7 +28,16 @@ import { RedTeamAgent } from './red-team/redTeamAgent';
 import { JudgeAgent } from './judge/judgeAgent';
 import { ScoringEngine } from '../server/scoring/scoringEngine';
 import { IVentureRepository, ventureRepository } from '../server/db/repository';
-import { NextAction, CollaborationRecord, ConfidenceLevel } from '../types/domain';
+import { 
+  NextAction, 
+  CollaborationRecord, 
+  ConfidenceLevel,
+  AgentRunRecord,
+  EvidenceVerificationReport,
+  AgentChainStatus
+} from '../types/domain';
+import { evidenceVerificationService } from '../server/verification/evidenceVerificationService';
+import { chainOfThoughtWrapper } from '../server/verification/chainOfThoughtWrapper';
 
 export type OrchestrationEventCallback = (state: VentureAnalysisState) => void;
 
@@ -126,7 +140,7 @@ export class MultiAgentOrchestrator {
   }
 
   /**
-   * Executes the Phase 3 Research Agent pipeline
+   * Executes the full 4-agent pipeline with Chain of Thought & Evidence Verification Protocol
    */
   public async executePipeline(
     ventureId: string,
@@ -173,6 +187,9 @@ export class MultiAgentOrchestrator {
       if (onProgress) onProgress({ ...state });
     };
 
+    // Tracking run records throughout this pipeline run
+    const collectedRunRecords: AgentRunRecord[] = [];
+
     try {
       // ----------------------------------------------------
       // PHASE 3: RESEARCH AGENT EXECUTION
@@ -180,8 +197,11 @@ export class MultiAgentOrchestrator {
       state.agentWorkflow.research = { status: 'running', startedAt: new Date().toISOString() };
       emit();
 
+      const researchRunId = evidenceVerificationService.generateAgentRunId('RESEARCH', ventureId);
+
       const researchOutput = await this.researchAgent.analyze({
         ventureId: venture.id,
+        agentRunId: researchRunId,
         ventureTitle: venture.title,
         ventureDescription: venture.description,
         targetAudience: venture.targetAudience,
@@ -200,11 +220,25 @@ export class MultiAgentOrchestrator {
         venture
       });
 
+      // Verification Protocol Check for Research
+      const researchVerification = evidenceVerificationService.verifyResearchExecution(
+        researchOutput.report,
+        researchRunId,
+        ventureId,
+        false
+      );
+      collectedRunRecords.push(researchVerification.runRecord);
+
+      // Chain of Thought Extraction
+      const researchCoT = chainOfThoughtWrapper.extractChainOfThought('RESEARCH', researchOutput.report);
+
       const reportId = `rr_${Date.now()}`;
       const savedResearchReport = await this.repo.saveResearchReport(ventureId, {
         ...researchOutput.report,
         id: reportId,
         ventureId,
+        agentRunId: researchRunId,
+        chainOfThought: researchCoT,
         createdAt: new Date().toISOString()
       });
 
@@ -215,7 +249,8 @@ export class MultiAgentOrchestrator {
           title: venture.title,
           problem: venture.problem,
           solution: venture.solution,
-          targetCustomer: venture.targetCustomer || venture.targetAudience
+          targetCustomer: venture.targetCustomer || venture.targetAudience,
+          agentRunId: researchRunId
         },
         researchSources: (savedResearchReport.sources || []).map(s => ({ id: s.id, title: s.title, publisher: s.publisher })),
         keyFindings: (savedResearchReport.findings || []).map(f => f.statement),
@@ -231,11 +266,12 @@ export class MultiAgentOrchestrator {
         completedAt: new Date().toISOString()
       };
 
-      // Update Venture lifecycle state with research report and collaboration records
+      // Update Venture lifecycle state with research report and run records
       await this.repo.update(ventureId, { 
         status: 'analyzing',
         researchReport: savedResearchReport,
-        collaborationRecords: state.collaborationRecords
+        collaborationRecords: state.collaborationRecords,
+        agentRunRecords: collectedRunRecords
       });
 
       let updatedVenture = await this.repo.findById(ventureId);
@@ -250,9 +286,18 @@ export class MultiAgentOrchestrator {
       state.agentWorkflow.business = { status: 'running', startedAt: new Date().toISOString() };
       emit();
 
+      let savedBusinessReport: any = null;
+      let businessRunId = '';
+      let businessVerification: any = null;
+
       try {
+        businessRunId = evidenceVerificationService.generateAgentRunId('BUSINESS', ventureId);
+
         const businessOutput = await this.businessAgent.evaluate({
           ventureId: venture.id,
+          agentRunId: businessRunId,
+          researchAgentRunId: researchRunId,
+          verificationWarnings: researchVerification.warnings,
           ventureTitle: state.venture.title,
           ventureDescription: state.venture.description,
           targetAudience: state.venture.targetAudience,
@@ -272,11 +317,26 @@ export class MultiAgentOrchestrator {
           venture: state.venture
         });
 
+        // Verification Protocol Check for Business
+        businessVerification = evidenceVerificationService.verifyBusinessExecution(
+          businessOutput.report,
+          businessRunId,
+          ventureId,
+          researchRunId,
+          researchVerification.status
+        );
+        collectedRunRecords.push(businessVerification.runRecord);
+
+        // Chain of Thought Extraction
+        const businessCoT = chainOfThoughtWrapper.extractChainOfThought('BUSINESS', businessOutput.report, savedResearchReport);
+
         const businessReportId = `br_${Date.now()}`;
-        const savedBusinessReport = await this.repo.saveBusinessReport(ventureId, {
+        savedBusinessReport = await this.repo.saveBusinessReport(ventureId, {
           ...businessOutput.report,
           id: businessReportId,
           ventureId,
+          agentRunId: businessRunId,
+          chainOfThought: businessCoT,
           createdAt: new Date().toISOString()
         });
 
@@ -286,7 +346,9 @@ export class MultiAgentOrchestrator {
           inputContext: {
             researchReportId: savedResearchReport.id,
             businessModel: state.venture.businessModel,
-            monetizationIdea: state.venture.monetizationIdea
+            monetizationIdea: state.venture.monetizationIdea,
+            agentRunId: businessRunId,
+            previousAgentRunId: researchRunId
           },
           previousAgentReference: [savedResearchReport.id],
           researchSources: (savedBusinessReport.sources || []).map(s => ({ id: s.id, title: s.title, publisher: s.publisher })),
@@ -306,11 +368,12 @@ export class MultiAgentOrchestrator {
           completedAt: new Date().toISOString()
         };
 
-        // Update Venture lifecycle state with business report
+        // Update Venture lifecycle state with business report and updated runs
         await this.repo.update(ventureId, {
           status: 'analyzing',
           businessReport: savedBusinessReport,
-          collaborationRecords: state.collaborationRecords
+          collaborationRecords: state.collaborationRecords,
+          agentRunRecords: collectedRunRecords
         });
 
         updatedVenture = await this.repo.findById(ventureId);
@@ -336,9 +399,24 @@ export class MultiAgentOrchestrator {
       state.agentWorkflow.redTeam = { status: 'running', startedAt: new Date().toISOString() };
       emit();
 
+      let savedRedTeamReport: any = null;
+      let redTeamRunId = '';
+      let redTeamVerification: any = null;
+
       try {
+        redTeamRunId = evidenceVerificationService.generateAgentRunId('RED_TEAM', ventureId);
+
+        const accumulatedWarnings = [
+          ...researchVerification.warnings,
+          ...(businessVerification ? businessVerification.warnings : [])
+        ];
+
         const redTeamOutput = await this.redTeamAgent.challenge({
           ventureId: venture.id,
+          agentRunId: redTeamRunId,
+          researchAgentRunId: researchRunId,
+          businessAgentRunId: businessRunId,
+          verificationWarnings: accumulatedWarnings,
           ventureTitle: state.venture.title,
           ventureDescription: state.venture.description,
           targetAudience: state.venture.targetAudience,
@@ -359,11 +437,26 @@ export class MultiAgentOrchestrator {
           venture: state.venture
         });
 
+        // Verification Protocol Check for Red Team
+        redTeamVerification = evidenceVerificationService.verifyRedTeamExecution(
+          redTeamOutput.report,
+          redTeamRunId,
+          ventureId,
+          researchRunId,
+          businessRunId
+        );
+        collectedRunRecords.push(redTeamVerification.runRecord);
+
+        // Chain of Thought Extraction
+        const redTeamCoT = chainOfThoughtWrapper.extractChainOfThought('RED_TEAM', redTeamOutput.report);
+
         const redTeamReportId = `rt_${Date.now()}`;
-        const savedRedTeamReport = await this.repo.saveRedTeamReport(ventureId, {
+        savedRedTeamReport = await this.repo.saveRedTeamReport(ventureId, {
           ...redTeamOutput.report,
           id: redTeamReportId,
           ventureId,
+          agentRunId: redTeamRunId,
+          chainOfThought: redTeamCoT,
           createdAt: new Date().toISOString()
         });
 
@@ -372,7 +465,9 @@ export class MultiAgentOrchestrator {
           ventureId,
           inputContext: {
             researchReportId: state.researchReport?.id,
-            businessReportId: state.businessReport?.id
+            businessReportId: state.businessReport?.id,
+            agentRunId: redTeamRunId,
+            previousRuns: [researchRunId, businessRunId]
           },
           previousAgentReference: [
             ...(state.researchReport ? [state.researchReport.id] : []),
@@ -393,11 +488,12 @@ export class MultiAgentOrchestrator {
         };
         state.analysisStatus = 'completed';
 
-        // Update Venture lifecycle state with red team report
+        // Update Venture lifecycle state with red team report and updated runs
         await this.repo.update(ventureId, {
           status: 'analyzing',
           redTeamReport: savedRedTeamReport,
-          collaborationRecords: state.collaborationRecords
+          collaborationRecords: state.collaborationRecords,
+          agentRunRecords: collectedRunRecords
         });
 
         updatedVenture = await this.repo.findById(ventureId);
@@ -418,14 +514,27 @@ export class MultiAgentOrchestrator {
       }
 
       // ----------------------------------------------------
-      // PHASE 6: JUDGE AGENT SYNTHESIS
+      // PHASE 6: JUDGE AGENT SYNTHESIS & HARD DECISION GATE
       // ----------------------------------------------------
       state.agentWorkflow.judge = { status: 'running', startedAt: new Date().toISOString() };
       emit();
 
       try {
+        const judgeRunId = evidenceVerificationService.generateAgentRunId('JUDGE', ventureId);
+
+        const allUpstreamWarnings = [
+          ...researchVerification.warnings,
+          ...(businessVerification ? businessVerification.warnings : []),
+          ...(redTeamVerification ? redTeamVerification.warnings : [])
+        ];
+
         const judgeOutput = await this.judgeAgent.synthesize({
           ventureId: venture.id,
+          agentRunId: judgeRunId,
+          researchAgentRunId: researchRunId,
+          businessAgentRunId: businessRunId,
+          redTeamAgentRunId: redTeamRunId,
+          verificationWarnings: allUpstreamWarnings,
           ventureTitle: state.venture.title,
           ventureDescription: state.venture.description,
           targetAudience: state.venture.targetAudience,
@@ -447,20 +556,42 @@ export class MultiAgentOrchestrator {
           venture: state.venture
         });
 
+        // Verification Protocol & Hard Decision Gate for Judge
+        const judgeVerification = evidenceVerificationService.verifyJudgeAndEnforceGate(
+          judgeOutput.report,
+          judgeRunId,
+          ventureId,
+          {
+            research: researchVerification?.runRecord,
+            business: businessVerification?.runRecord,
+            redTeam: redTeamVerification?.runRecord
+          },
+          judgeOutput.report.aiRecommendation
+        );
+        collectedRunRecords.push(judgeVerification.runRecord);
+
+        // Chain of Thought Extraction
+        const judgeCoT = chainOfThoughtWrapper.extractChainOfThought('JUDGE', judgeOutput.report);
+
         const judgeReportId = `jr_${Date.now()}`;
-        const savedJudgeReport = await this.repo.saveJudgeReport(ventureId, {
+        const finalReportData = {
           ...judgeOutput.report,
           id: judgeReportId,
           ventureId,
+          agentRunId: judgeRunId,
+          chainOfThought: judgeCoT,
+          aiRecommendation: judgeVerification.finalRecommendation,
+          evidenceVerificationReport: judgeVerification.verificationReport,
           createdAt: new Date().toISOString()
-        });
+        };
 
+        const savedJudgeReport = await this.repo.saveJudgeReport(ventureId, finalReportData);
         const savedActions = await this.repo.saveNextActions(ventureId, savedJudgeReport.nextActions || []);
 
-        // Calculate and persist deterministic readiness score
+        // Calculate deterministic readiness score
         const computedScore = ScoringEngine.calculate(
           ventureId,
-          undefined,
+          judgeOutput.rawScoreInput,
           state.researchReport,
           state.businessReport,
           state.redTeamReport
@@ -473,7 +604,9 @@ export class MultiAgentOrchestrator {
           inputContext: {
             researchReportId: state.researchReport?.id,
             businessReportId: state.businessReport?.id,
-            redTeamReportId: state.redTeamReport?.id
+            redTeamReportId: state.redTeamReport?.id,
+            agentRunId: judgeRunId,
+            previousRuns: [researchRunId, businessRunId, redTeamRunId]
           },
           previousAgentReference: [
             ...(state.researchReport ? [state.researchReport.id] : []),
@@ -500,13 +633,16 @@ export class MultiAgentOrchestrator {
         };
         state.analysisStatus = 'completed';
 
-        // Update Venture lifecycle state to evaluated
+        // Update Venture lifecycle state to evaluated with verified provenance metadata
         await this.repo.update(ventureId, {
           status: 'evaluated',
           judgeReport: savedJudgeReport,
           nextActions: savedActions,
           score: savedScore,
-          collaborationRecords: state.collaborationRecords
+          collaborationRecords: state.collaborationRecords,
+          agentRunRecords: collectedRunRecords,
+          agentChainStatus: judgeVerification.chainStatus,
+          evidenceVerificationReport: judgeVerification.verificationReport
         });
 
         updatedVenture = await this.repo.findById(ventureId);
@@ -567,8 +703,13 @@ export class MultiAgentOrchestrator {
     emit();
 
     try {
+      const researchRunId = state.researchReport?.agentRunId;
+      const businessRunId = evidenceVerificationService.generateAgentRunId('BUSINESS', ventureId);
+
       const businessOutput = await this.businessAgent.evaluate({
         ventureId: state.venture.id,
+        agentRunId: businessRunId,
+        researchAgentRunId: researchRunId,
         ventureTitle: state.venture.title,
         ventureDescription: state.venture.description,
         targetAudience: state.venture.targetAudience,
@@ -588,11 +729,23 @@ export class MultiAgentOrchestrator {
         venture: state.venture
       });
 
+      const businessVerification = evidenceVerificationService.verifyBusinessExecution(
+        businessOutput.report,
+        businessRunId,
+        ventureId,
+        researchRunId,
+        state.researchReport ? 'VERIFIED' : 'UNVERIFIED'
+      );
+
+      const businessCoT = chainOfThoughtWrapper.extractChainOfThought('BUSINESS', businessOutput.report, state.researchReport);
+
       const businessReportId = `br_${Date.now()}`;
       const savedBusinessReport = await this.repo.saveBusinessReport(ventureId, {
         ...businessOutput.report,
         id: businessReportId,
         ventureId,
+        agentRunId: businessRunId,
+        chainOfThought: businessCoT,
         createdAt: new Date().toISOString()
       });
 
@@ -602,7 +755,9 @@ export class MultiAgentOrchestrator {
         inputContext: {
           researchReportId: state.researchReport?.id,
           businessModel: state.venture.businessModel,
-          monetizationIdea: state.venture.monetizationIdea
+          monetizationIdea: state.venture.monetizationIdea,
+          agentRunId: businessRunId,
+          researchRunId
         },
         previousAgentReference: state.researchReport ? [state.researchReport.id] : [],
         researchSources: (savedBusinessReport.sources || []).map(s => ({ id: s.id, title: s.title, publisher: s.publisher })),
@@ -614,6 +769,12 @@ export class MultiAgentOrchestrator {
         confidence: ((savedBusinessReport.confidence || 'HIGH') as ConfidenceLevel),
         status: 'COMPLETED'
       });
+
+      const existingRuns = state.venture.agentRunRecords || [];
+      const updatedRuns = [
+        ...existingRuns.filter(r => r.agentName !== 'BUSINESS'),
+        businessVerification.runRecord
+      ];
 
       state.businessReport = savedBusinessReport;
       state.collaborationRecords = [
@@ -629,7 +790,8 @@ export class MultiAgentOrchestrator {
       await this.repo.update(ventureId, {
         status: 'analyzing',
         businessReport: savedBusinessReport,
-        collaborationRecords: state.collaborationRecords
+        collaborationRecords: state.collaborationRecords,
+        agentRunRecords: updatedRuns
       });
 
       const updatedVenture = await this.repo.findById(ventureId);
@@ -673,8 +835,15 @@ export class MultiAgentOrchestrator {
     emit();
 
     try {
+      const researchRunId = state.researchReport?.agentRunId;
+      const businessRunId = state.businessReport?.agentRunId;
+      const redTeamRunId = evidenceVerificationService.generateAgentRunId('RED_TEAM', ventureId);
+
       const redTeamOutput = await this.redTeamAgent.challenge({
         ventureId: state.venture.id,
+        agentRunId: redTeamRunId,
+        researchAgentRunId: researchRunId,
+        businessAgentRunId: businessRunId,
         ventureTitle: state.venture.title,
         ventureDescription: state.venture.description,
         targetAudience: state.venture.targetAudience,
@@ -695,11 +864,23 @@ export class MultiAgentOrchestrator {
         venture: state.venture
       });
 
+      const redTeamVerification = evidenceVerificationService.verifyRedTeamExecution(
+        redTeamOutput.report,
+        redTeamRunId,
+        ventureId,
+        researchRunId,
+        businessRunId
+      );
+
+      const redTeamCoT = chainOfThoughtWrapper.extractChainOfThought('RED_TEAM', redTeamOutput.report);
+
       const redTeamReportId = `rt_${Date.now()}`;
       const savedRedTeamReport = await this.repo.saveRedTeamReport(ventureId, {
         ...redTeamOutput.report,
         id: redTeamReportId,
         ventureId,
+        agentRunId: redTeamRunId,
+        chainOfThought: redTeamCoT,
         createdAt: new Date().toISOString()
       });
 
@@ -708,7 +889,9 @@ export class MultiAgentOrchestrator {
         ventureId,
         inputContext: {
           researchReportId: state.researchReport?.id,
-          businessReportId: state.businessReport?.id
+          businessReportId: state.businessReport?.id,
+          agentRunId: redTeamRunId,
+          previousRuns: [researchRunId, businessRunId]
         },
         previousAgentReference: [
           ...(state.researchReport ? [state.researchReport.id] : []),
@@ -720,6 +903,12 @@ export class MultiAgentOrchestrator {
         confidence: ((savedRedTeamReport.confidence || 'HIGH') as ConfidenceLevel),
         status: 'COMPLETED'
       });
+
+      const existingRuns = state.venture.agentRunRecords || [];
+      const updatedRuns = [
+        ...existingRuns.filter(r => r.agentName !== 'RED_TEAM'),
+        redTeamVerification.runRecord
+      ];
 
       state.redTeamReport = savedRedTeamReport;
       state.collaborationRecords = [
@@ -735,7 +924,8 @@ export class MultiAgentOrchestrator {
       await this.repo.update(ventureId, {
         status: 'analyzing',
         redTeamReport: savedRedTeamReport,
-        collaborationRecords: state.collaborationRecords
+        collaborationRecords: state.collaborationRecords,
+        agentRunRecords: updatedRuns
       });
 
       const updatedVenture = await this.repo.findById(ventureId);
@@ -779,8 +969,17 @@ export class MultiAgentOrchestrator {
     emit();
 
     try {
+      const researchRunId = state.researchReport?.agentRunId;
+      const businessRunId = state.businessReport?.agentRunId;
+      const redTeamRunId = state.redTeamReport?.agentRunId;
+      const judgeRunId = evidenceVerificationService.generateAgentRunId('JUDGE', ventureId);
+
       const judgeOutput = await this.judgeAgent.synthesize({
         ventureId: state.venture.id,
+        agentRunId: judgeRunId,
+        researchAgentRunId: researchRunId,
+        businessAgentRunId: businessRunId,
+        redTeamAgentRunId: redTeamRunId,
         ventureTitle: state.venture.title,
         ventureDescription: state.venture.description,
         targetAudience: state.venture.targetAudience,
@@ -802,19 +1001,43 @@ export class MultiAgentOrchestrator {
         venture: state.venture
       });
 
+      const existingRuns = state.venture.agentRunRecords || [];
+      const researchRun = existingRuns.find(r => r.agentName === 'RESEARCH');
+      const businessRun = existingRuns.find(r => r.agentName === 'BUSINESS');
+      const redTeamRun = existingRuns.find(r => r.agentName === 'RED_TEAM');
+
+      const judgeVerification = evidenceVerificationService.verifyJudgeAndEnforceGate(
+        judgeOutput.report,
+        judgeRunId,
+        ventureId,
+        {
+          research: researchRun,
+          business: businessRun,
+          redTeam: redTeamRun
+        },
+        judgeOutput.report.aiRecommendation
+      );
+
+      const judgeCoT = chainOfThoughtWrapper.extractChainOfThought('JUDGE', judgeOutput.report);
+
       const judgeReportId = `jr_${Date.now()}`;
-      const savedJudgeReport = await this.repo.saveJudgeReport(ventureId, {
+      const finalReportData = {
         ...judgeOutput.report,
         id: judgeReportId,
         ventureId,
+        agentRunId: judgeRunId,
+        chainOfThought: judgeCoT,
+        aiRecommendation: judgeVerification.finalRecommendation,
+        evidenceVerificationReport: judgeVerification.verificationReport,
         createdAt: new Date().toISOString()
-      });
+      };
 
+      const savedJudgeReport = await this.repo.saveJudgeReport(ventureId, finalReportData);
       const savedActions = await this.repo.saveNextActions(ventureId, savedJudgeReport.nextActions || []);
 
       const computedScore = ScoringEngine.calculate(
         ventureId,
-        undefined,
+        judgeOutput.rawScoreInput,
         state.researchReport,
         state.businessReport,
         state.redTeamReport
@@ -827,7 +1050,9 @@ export class MultiAgentOrchestrator {
         inputContext: {
           researchReportId: state.researchReport?.id,
           businessReportId: state.businessReport?.id,
-          redTeamReportId: state.redTeamReport?.id
+          redTeamReportId: state.redTeamReport?.id,
+          agentRunId: judgeRunId,
+          previousRuns: [researchRunId, businessRunId, redTeamRunId]
         },
         previousAgentReference: [
           ...(state.researchReport ? [state.researchReport.id] : []),
@@ -843,6 +1068,11 @@ export class MultiAgentOrchestrator {
         confidence: savedJudgeReport.recommendationConfidence,
         status: 'COMPLETED'
       });
+
+      const updatedRuns = [
+        ...existingRuns.filter(r => r.agentName !== 'JUDGE'),
+        judgeVerification.runRecord
+      ];
 
       state.judgeReport = savedJudgeReport;
       state.nextActions = savedActions;
@@ -862,7 +1092,10 @@ export class MultiAgentOrchestrator {
         judgeReport: savedJudgeReport,
         nextActions: savedActions,
         score: savedScore,
-        collaborationRecords: state.collaborationRecords
+        collaborationRecords: state.collaborationRecords,
+        agentRunRecords: updatedRuns,
+        agentChainStatus: judgeVerification.chainStatus,
+        evidenceVerificationReport: judgeVerification.verificationReport
       });
 
       const updatedVenture = await this.repo.findById(ventureId);
@@ -886,4 +1119,3 @@ export class MultiAgentOrchestrator {
 }
 
 export const multiAgentOrchestrator = new MultiAgentOrchestrator();
-

@@ -32,6 +32,7 @@ import {
   buildBusinessAgentUserPrompt 
 } from './prompt';
 import { executeGeminiWithFallback } from '../../server/services/geminiClient';
+import { deriveCommercialEconomics } from '../../utils/unitEconomicsEngine';
 
 export class BusinessAgent implements IBusinessAgent {
   public readonly agentType = 'BUSINESS' as const;
@@ -46,6 +47,9 @@ export class BusinessAgent implements IBusinessAgent {
       const userPrompt = buildBusinessAgentUserPrompt({
         title: input.ventureTitle,
         description: input.ventureDescription,
+        agentRunId: input.agentRunId,
+        researchAgentRunId: input.researchAgentRunId,
+        verificationWarnings: input.verificationWarnings,
         targetAudience: input.targetAudience || input.targetCustomer || undefined,
         monetizationIdea: input.monetizationIdea || input.businessModel || undefined,
         rawIdea: input.rawIdea,
@@ -497,8 +501,22 @@ export class BusinessAgent implements IBusinessAgent {
       rationale: 'Initial product version is vulnerable to replication; defensibility requires accumulating proprietary workflow logic, integration connectors, and historical client benchmarks.'
     };
 
+    // Dynamically derive rigorous, venture-tailored commercial economics
+    const commercialEconomics = deriveCommercialEconomics({
+      title: input.ventureTitle,
+      description: input.ventureDescription,
+      problem: input.problem,
+      solution: input.solution,
+      targetCustomer: input.targetCustomer || input.targetAudience,
+      businessModel: input.businessModel || input.monetizationIdea,
+      technology: input.technology,
+      rawIdea: input.rawIdea
+    }, raw);
+
+    businessModel.commercialEconomics = commercialEconomics;
+
     return {
-      executiveSummary: raw.executiveSummary || `Commercial viability evaluation for "${input.ventureTitle}". The venture addresses an acute workflow friction with strong potential ROI, but commercial success hinges on proving customer willingness-to-pay and establishing an efficient, repeatable distribution engine.`,
+      executiveSummary: raw.executiveSummary || `Empirical commercial viability analysis for "${input.ventureTitle}". The venture operates under the ${commercialEconomics.archetypeDisplayName} model, with an estimated gross margin of ${commercialEconomics.estimatedGrossMargin}% and target ACV of ${commercialEconomics.targetPricePoint}.`,
       confidence,
       confidenceScore: confidence,
       customerAnalysis,
@@ -515,7 +533,7 @@ export class BusinessAgent implements IBusinessAgent {
       distributionAnalysis,
       acquisitionConsiderations: raw.acquisitionConsiderations || [
         'Develop standardized 14-day proof-of-value pilots with clear success metrics.',
-        'Target mid-market buyers first to avoid 9-month enterprise procurement cycles.'
+        'Target mid-market buyers first to avoid extended enterprise procurement cycles.'
       ],
       operationalConsiderations: raw.operationalConsiderations || [
         'Build telemetry to detect pilot onboarding drop-offs immediately.',
@@ -538,10 +556,10 @@ export class BusinessAgent implements IBusinessAgent {
         confidence
       },
       // Backwards compatibility properties
-      archetype: (businessModel.archetype as any) || 'B2B_SAAS',
-      estimatedMarginProfile: businessModel.unitEconomicsHypothesis?.estimatedMarginProfile || '75% - 82% Gross Margin at operational scale',
-      pricingPower: 'MODERATE',
-      capitalRequirement: (businessModel.unitEconomicsHypothesis?.capitalRequirement as any) || 'MODERATE_SEED',
+      archetype: (commercialEconomics.archetype as any) || (businessModel.archetype as any) || 'B2B_SAAS',
+      estimatedMarginProfile: `${commercialEconomics.estimatedGrossMargin}% Gross Margin (${commercialEconomics.grossMarginRange})`,
+      pricingPower: commercialEconomics.pricingPower || 'STRONG',
+      capitalRequirement: (commercialEconomics.capitalIntensity as any) || 'MODERATE_SEED',
       primaryDistributionChannel: distributionAnalysis.primaryChannel,
       assumptions: businessAssumptions,
       risks: businessRisks,
@@ -551,36 +569,48 @@ export class BusinessAgent implements IBusinessAgent {
 
   private generateDeterministicReport(input: BusinessAgentInput): any {
     const title = input.ventureTitle || 'Target Venture';
-    const desc = input.ventureDescription || '';
-    const audience = input.targetCustomer || input.targetAudience || 'Operations Leaders';
-    const monetization = input.businessModel || input.monetizationIdea || 'Tiered SaaS Subscription';
+    const desc = input.ventureDescription || input.solution || 'Automated software solution';
+    const audience = input.targetCustomer || input.targetAudience || 'Operations & Department Leaders';
+    const monetization = input.businessModel || input.monetizationIdea || 'Tiered Subscription SaaS';
+
+    // Compute tailored commercial economics based on venture domain
+    const economics = deriveCommercialEconomics({
+      title,
+      description: desc,
+      problem: input.problem,
+      solution: input.solution,
+      targetCustomer: audience,
+      businessModel: monetization,
+      technology: input.technology,
+      rawIdea: input.rawIdea
+    });
 
     return {
-      executiveSummary: `Empirical commercial viability analysis for "${title}". The venture targets a high-friction operational problem among ${audience}. While workflow automation tailwinds are favorable, customer willingness-to-pay for this specific wedge remains unvalidated in primary customer trials, requiring rigorous assumption testing prior to heavy engineering expenditure.`,
+      executiveSummary: `Empirical commercial viability analysis for "${title}". The venture operates under the ${economics.archetypeDisplayName} model, targeting ${audience}. Unit economics exhibit a ${economics.estimatedGrossMargin}% gross margin profile with a target price point of ${economics.targetPricePoint}. ${economics.overallUnitEconomicsStatus}`,
       confidence: 'MEDIUM',
       customerAnalysis: {
         targetCustomer: audience,
-        customerProblem: desc,
+        customerProblem: input.problem || desc,
         severity: 'HIGH',
         frequency: 'DAILY',
         currentAlternatives: [
           'Manual spreadsheet-based tracking and email workflows',
           'Internal ad-hoc scripts maintained with high technical debt',
-          'Incumbent enterprise legacy suites with slow UX'
+          'Incumbent enterprise legacy suites with slow UX and high licensing costs'
         ],
         switchingBehavior: 'High organizational switching inertia requiring demonstrably superior ROI (3x-5x speed improvement) to motivate migration.',
-        evidenceOfDemand: 'Upstream research indicates widespread pain with manual workflows, though active procurement budget line-items vary across accounts.',
-        willingnessToPayEvidence: `Proposed monetization model is "${monetization}". Comparable vertical tools command $100-$800/seat/month, but willingness-to-pay for this solution is not yet verified with signed contracts.`,
+        evidenceOfDemand: `Upstream research indicates recurring pain in workflow handling for ${audience}. Active procurement budget line-items vary across accounts.`,
+        willingnessToPayEvidence: `Proposed monetization model is "${monetization}". Target price point is calibrated at ${economics.targetPricePoint}. Willingness to pay at scale requires signed pilot verification.`,
         willingnessToPayStatus: 'UNVALIDATED'
       },
       problemEconomics: {
-        valueProposition: `Streamlines ${desc.toLowerCase().slice(0, 100)} by automating manual handoffs and eliminating repetitive administrative overhead.`,
-        costOfInaction: 'Accumulated staff hours spent on routine manual data manipulation and recurring operational error correction.',
-        economicJustification: 'Saving 3-5 hours per operator weekly translates to $5,000-$15,000 in recovered annual labor value per seat.'
+        valueProposition: `Streamlines ${title} workflows by automating manual handoffs and eliminating recurring operational latency.`,
+        costOfInaction: 'Accumulated team hours spent on routine manual data manipulation and recurring operational error correction.',
+        economicJustification: economics.economicJustification
       },
       marketAnalysis: {
-        marketStructure: 'Specialized mid-market and enterprise B2B vertical with moderate vendor fragmentation and strong incumbent lock-in.',
-        industryEconomics: 'Standard software gross margins of 75-85% at scale, counterbalanced by high initial customer acquisition costs and onboarding labor.',
+        marketStructure: `Specialized ${economics.archetypeDisplayName} segment with moderate vendor fragmentation and incumbent software lock-in.`,
+        industryEconomics: `${economics.archetypeDisplayName} gross margins of ${economics.grossMarginRange} at scale, counterbalanced by initial customer acquisition effort.`,
         entryBarriers: [
           'IT security compliance and SOC2 / GDPR reviews',
           'Integration friction with legacy customer data repositories',
@@ -604,8 +634,8 @@ export class BusinessAgent implements IBusinessAgent {
         {
           company: 'Manual Workarounds & Spreadsheets',
           offering: 'Internal Excel / Google Sheets tracking',
-          targetCustomer: 'Mid-market departmental operators',
-          pricing: 'Zero incremental software cost',
+          targetCustomer: 'Departmental operators & practitioners',
+          pricing: 'Zero incremental software cost ($0 direct)',
           positioning: 'Default status-quo solution',
           strengths: 'Completely flexible, zero procurement barrier, universally understood',
           weaknesses: 'Zero real-time collaboration, prone to formula errors, no automated alerting',
@@ -619,33 +649,30 @@ export class BusinessAgent implements IBusinessAgent {
       ],
       businessModel: {
         revenueModel: monetization,
-        pricingModel: 'Hybrid platform base license + user seat or usage tiers',
-        archetype: 'B2B_SAAS',
-        costDrivers: [
-          'Cloud hosting infrastructure and LLM/API compute consumption',
-          'Third-party connector licensing and maintenance',
-          'Customer success onboarding and account management personnel'
-        ],
+        pricingModel: economics.targetPricePoint,
+        archetype: economics.archetype,
+        costDrivers: economics.cogsBreakdown.map(c => `${c.name} (${c.percentage}%)`),
         retentionMechanism: 'Deep integration into daily team workflows and accumulated historical operating intelligence.',
         unitEconomicsHypothesis: {
-          targetPricePoint: '$299 - $1,499 / month / organization',
-          estimatedMarginProfile: '78% Gross Margin at operational scale',
-          paybackPeriodEstimate: '6 - 9 months with targeted outbound motion',
-          capitalRequirement: 'MODERATE_SEED',
-          notes: 'Unit margins are vulnerable to API inference fees and high-touch onboarding labor.'
-        }
+          targetPricePoint: economics.targetPricePoint,
+          estimatedMarginProfile: `${economics.estimatedGrossMargin}% Gross Margin (${economics.grossMarginRange})`,
+          paybackPeriodEstimate: `${economics.paybackMonths} Months Payback`,
+          capitalRequirement: economics.capitalIntensity,
+          notes: economics.capitalIntensityDescription
+        },
+        commercialEconomics: economics
       },
       pricingEvidence: [
         {
-          benchmark: 'Vertical B2B Workflow SaaS Benchmarks',
-          model: 'Tiered Per-Seat / Volume SaaS',
-          priceRange: '$49 - $299 / user / month',
-          evidence: 'Publicly listed pricing across comparable market workflow tools.'
+          benchmark: `${economics.archetypeDisplayName} Benchmarks`,
+          model: monetization,
+          priceRange: economics.targetPricePoint,
+          evidence: `Publicly listed pricing across comparable ${economics.archetypeDisplayName} market tools.`
         }
       ],
       distributionAnalysis: {
-        primaryChannel: 'Targeted outbound outreach to operations heads paired with high-intent technical search content and integration ecosystems',
-        channelViability: 'Moderate viability; requires tight ICP definition to keep CAC payback below 12 months.',
+        primaryChannel: `Targeted outbound outreach to ${audience} paired with high-intent technical search content and integration ecosystems`,
+        channelViability: `Moderate viability; requires tight ICP definition to keep CAC payback below ${economics.paybackMonths + 3} months.`,
         acquisitionChallenges: [
           'High inbox noise and low email open rates in standard cold outbound.',
           'Navigating multi-stakeholder purchasing committees (User, IT Security, Finance).'
@@ -666,8 +693,8 @@ export class BusinessAgent implements IBusinessAgent {
       businessAssumptions: [
         {
           id: `ba_det_1_${Date.now()}`,
-          statement: `Target ${audience} have direct discretionary budget authority ($5k-$20k) without requiring C-suite board approval.`,
-          hypothesis: `Target ${audience} have direct discretionary budget authority ($5k-$20k) without requiring C-suite board approval.`,
+          statement: `Target ${audience} have direct discretionary budget authority (${economics.targetPricePoint}) without requiring multi-quarter board approval.`,
+          hypothesis: `Target ${audience} have direct discretionary budget authority (${economics.targetPricePoint}) without requiring multi-quarter board approval.`,
           category: 'customer',
           importance: 'CRITICAL',
           evidenceStatus: 'unverified',
@@ -677,8 +704,8 @@ export class BusinessAgent implements IBusinessAgent {
         },
         {
           id: `ba_det_2_${Date.now()}`,
-          statement: 'Customers will accept recurring subscription billing rather than demanding one-off customization engagements.',
-          hypothesis: 'Customers will accept recurring subscription billing rather than demanding one-off customization engagements.',
+          statement: `Customers will accept recurring ${economics.pricingCadence} rather than demanding one-off customization engagements.`,
+          hypothesis: `Customers will accept recurring ${economics.pricingCadence} rather than demanding one-off customization engagements.`,
           category: 'pricing',
           importance: 'HIGH',
           evidenceStatus: 'partially_verified',
@@ -688,8 +715,8 @@ export class BusinessAgent implements IBusinessAgent {
         },
         {
           id: `ba_det_3_${Date.now()}`,
-          statement: 'Target customer acquisition cost (CAC) through targeted outbound can remain under $600 per activated account.',
-          hypothesis: 'Target customer acquisition cost (CAC) through targeted outbound can remain under $600 per activated account.',
+          statement: `Target customer acquisition cost (CAC) can remain within ${economics.cacEstimate}.`,
+          hypothesis: `Target customer acquisition cost (CAC) can remain within ${economics.cacEstimate}.`,
           category: 'distribution',
           importance: 'HIGH',
           evidenceStatus: 'unverified',
@@ -701,41 +728,41 @@ export class BusinessAgent implements IBusinessAgent {
       businessRisks: [
         {
           id: `brisk_det_1_${Date.now()}`,
-          title: 'Extended Enterprise Procurement Cycles Causing Cash Burn',
-          description: 'Sales cycles exceeding 6 months can deplete initial runway before revenue payback is realized.',
+          title: 'Extended Procurement Cycles Causing Cash Burn',
+          description: `Sales cycles exceeding ${economics.paybackMonths + 4} months can deplete initial runway before revenue payback is realized.`,
           probability: 'HIGH',
           impact: 'HIGH',
           severity: 'HIGH',
           confidence: 'HIGH',
-          evidence: 'Average B2B enterprise procurement cycles range from 90 to 180 days across software categories.',
+          evidence: 'Average B2B procurement cycles range from 90 to 180 days across enterprise software categories.',
           mitigation: 'Implement standardized 30-day paid proof-of-concept (POC) agreements with pre-agreed conversion criteria.',
           mitigationStrategy: 'Implement standardized 30-day paid proof-of-concept (POC) agreements with pre-agreed conversion criteria.',
           validationAction: 'Track sales velocity and stage duration across the first 10 qualified discovery conversations.'
         },
         {
           id: `brisk_det_2_${Date.now()}`,
-          title: 'Incumbent Native Feature Bundling',
-          description: 'Existing workflow platforms may add native automation plugins, eroding the core standalone value proposition.',
+          title: 'Direct COGS Inflation via Compute or Third-Party APIs',
+          description: `Unexpected spikes in COGS (${economics.cogsBreakdown.map(c => c.name).join(', ')}) could compress gross margins below the target ${economics.estimatedGrossMargin}%.`,
           probability: 'MEDIUM',
           impact: 'HIGH',
           severity: 'HIGH',
           confidence: 'MEDIUM',
-          evidence: 'Major productivity suites continually expand native workflow and automation capabilities.',
-          mitigation: 'Focus on deep domain-specific integrations and proprietary workflow intelligence that generic platforms cannot easily replicate.',
-          mitigationStrategy: 'Focus on deep domain-specific integrations and proprietary workflow intelligence that generic platforms cannot easily replicate.',
-          validationAction: 'Monitor quarterly roadmap releases and feature announcements of primary incumbent tools.'
+          evidence: 'High compute consumption and unoptimized external API calls frequently compress early software margins.',
+          mitigation: 'Implement caching layers, token optimization, and per-account margin telemetry.',
+          mitigationStrategy: 'Implement caching layers, token optimization, and per-account margin telemetry.',
+          validationAction: 'Monitor per-transaction COGS telemetry closely during early pilot customer usage.'
         }
       ],
       supportingEvidence: [
-        'Substantial market demand for workflow automation and human error reduction across knowledge industries.',
-        'Established SaaS willingness-to-pay for domain-specific workflow optimization software.'
+        `Substantial market demand for ${economics.archetypeDisplayName} workflow optimization and human error reduction.`,
+        `Established willingness-to-pay for domain-specific automation software in ${audience} organizations.`
       ],
       contradictoryEvidence: [
         'High organizational resistance to migrating away from free, familiar spreadsheet workarounds.',
         'Tightened software budget scrutiny across corporate buyers prioritizing consolidation over new point solutions.'
       ],
       unknowns: [
-        'Actual customer acquisition cost (CAC) through cold outbound channels in this specific vertical niche.',
+        `Actual customer acquisition cost (CAC) through cold outbound channels in this specific ${economics.archetypeDisplayName} niche.`,
         'Net dollar retention (NDR) and annual churn rates after the initial pilot contract period.',
         'Total infrastructure cost per active workflow transaction under heavy production data volume.'
       ],
