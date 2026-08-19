@@ -1,16 +1,25 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { apiRouter } from './src/server/api/routes';
 
 const app = express();
 const PORT = 3000;
 
-// Body parser middleware with generous size limit for analysis payloads and reports
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Mount API routes at both /api and root level for maximum hosting compatibility (Vercel Serverless & Express container)
+// CORS & Preflight headers
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// API routes
 app.use('/api', apiRouter);
 app.use('/', apiRouter);
 
@@ -20,8 +29,9 @@ async function startServer() {
   const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
 
   if (!isProduction && !isVercel) {
-    // Development mode: mount Vite middleware for instant HMR and client assets
     try {
+      // Dynamic import to avoid bundling vite into production serverless environments
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
@@ -31,7 +41,7 @@ async function startServer() {
       console.warn('[Vite Middleware] Could not attach Vite dev server middleware:', err);
     }
   } else if (!isVercel) {
-    // Production container mode (Cloud Run / Docker): serve compiled static bundle
+    // Production container mode (Cloud Run): serve compiled static frontend bundle
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -39,7 +49,7 @@ async function startServer() {
     });
   }
 
-  // Only bind port if not running in a serverless environment like Vercel
+  // Bind listener for local/container servers
   if (!isVercel) {
     const bindPort = Number(process.env.PORT) || PORT;
     app.listen(bindPort, '0.0.0.0', () => {
