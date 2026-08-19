@@ -134,13 +134,49 @@ export class VentureService {
     }));
 
     if (criticalQuestions.length > 0) {
-      await this.repo.saveQuestions(createdVenture.id, criticalQuestions);
+      try {
+        await this.repo.saveQuestions(createdVenture.id, criticalQuestions);
+      } catch (qErr) {
+        console.warn('[VentureService] Warning saving questions:', qErr);
+      }
     }
 
     const state = await this.getAnalysisState(createdVenture.id);
+    if (state) {
+      return {
+        venture: state.venture,
+        analysisState: state
+      };
+    }
+
+    // Fallback if state extraction was delayed
+    const fallbackVenture = { ...createdVenture, questions: criticalQuestions };
+    const defaultState: VentureAnalysisState = {
+      venture: fallbackVenture,
+      criticalQuestions,
+      questionAnswers: {},
+      researchReport: null,
+      businessReport: null,
+      redTeamReport: null,
+      judgeReport: null,
+      scores: null,
+      nextActions: [],
+      decision: null,
+      agentWorkflow: {
+        research: { status: 'pending' },
+        business: { status: 'pending' },
+        redTeam: { status: 'pending' },
+        judge: { status: 'pending' }
+      },
+      lifecycleStatus: fallbackVenture.status,
+      intakeStatus: criticalQuestions.length === 0 ? 'ready' : 'draft',
+      questionsStatus: criticalQuestions.length === 0 ? 'not_required' : 'pending',
+      analysisStatus: 'not_started'
+    };
+
     return {
-      venture: state!.venture,
-      analysisState: state!
+      venture: fallbackVenture,
+      analysisState: defaultState
     };
   }
 

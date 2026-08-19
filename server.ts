@@ -12,6 +12,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Mount API routes at both /api and root level for maximum hosting compatibility (Vercel Serverless & Express container)
 app.use('/api', apiRouter);
+app.use('/', apiRouter);
 
 // Initialize server based on runtime environment (Cloud Run / Local Dev / Vercel)
 async function startServer() {

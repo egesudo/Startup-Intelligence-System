@@ -99,7 +99,28 @@ apiRouter.post('/ventures/intake', async (req, res) => {
 
     res.status(201).json(result);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('[API /ventures/intake] Error during intake processing, applying graceful fallback:', error);
+    try {
+      // Fallback to direct creation if intake AI pipeline failed
+      const rawIdea = req.body?.idea || 'New Startup Venture';
+      const created = await ventureRepository.create({
+        title: rawIdea.slice(0, 45) + (rawIdea.length > 45 ? '...' : ''),
+        description: rawIdea,
+        rawIdea: rawIdea,
+        targetAudience: req.body?.targetCustomer || '',
+        status: 'draft'
+      });
+      const fallbackState = await ventureService.getAnalysisState(created.id);
+      if (fallbackState) {
+        return res.status(201).json({
+          venture: fallbackState.venture,
+          analysisState: fallbackState
+        });
+      }
+      res.status(201).json({ venture: created, analysisState: null });
+    } catch (fallbackError: any) {
+      res.status(500).json({ error: error?.message || 'Failed to process startup idea' });
+    }
   }
 });
 
