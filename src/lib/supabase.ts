@@ -239,6 +239,20 @@ export async function verifyConnection(): Promise<VerifyConnectionResult> {
 }
 
 // Make verifyConnection available on window for quick browser console debugging
+export async function checkServerSupabaseEnv(): Promise<any> {
+  console.log('%c[Server Diagnostics] Querying server-side environment variables...', 'color: #3b82f6; font-weight: bold;');
+  try {
+    const res = await fetch('/api/diagnostics/supabase');
+    const data = await res.json();
+    console.log('%c[Server Diagnostics Report]:', 'color: #10b981; font-weight: bold;', data);
+    return data;
+  } catch (err) {
+    console.error('%c[Server Diagnostics Error]:', 'color: #ef4444; font-weight: bold;', err);
+    return null;
+  }
+}
+
 if (typeof window !== 'undefined') {
   (window as any).verifySupabaseConnection = verifyConnection;
+  (window as any).checkServerSupabaseEnv = checkServerSupabaseEnv;
 }

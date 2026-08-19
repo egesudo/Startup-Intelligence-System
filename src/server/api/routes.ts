@@ -8,6 +8,7 @@ import { orchestrationService } from '../services/orchestrationService';
 import { ventureRepository } from '../db/repository';
 import { checkSupabaseConnection, isSupabaseConfigured } from '../db/supabase';
 import { pdfReportService, ReportArtifactType } from '../services/pdfReportService';
+import { getSupabaseEnvDiagnostics, logServerEnvDiagnostics } from '../utils/supabaseDiagnostics';
 
 export const apiRouter = Router();
 
@@ -22,6 +23,17 @@ apiRouter.get('/health', async (req, res) => {
       configured: supabaseConfigured
     }
   });
+});
+
+// Dedicated Supabase Environment Variables Diagnostic Endpoint
+apiRouter.get('/diagnostics/supabase', (req, res) => {
+  const report = logServerEnvDiagnostics();
+  res.json(report);
+});
+
+apiRouter.get('/diagnostics/env', (req, res) => {
+  const report = logServerEnvDiagnostics();
+  res.json(report);
 });
 
 // Dedicated Supabase Connection & Credentials Health Check

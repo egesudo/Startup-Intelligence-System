@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { apiRouter } from './src/server/api/routes';
+import { logServerEnvDiagnostics } from './src/server/utils/supabaseDiagnostics';
 
 const app = express();
 const PORT = 3000;
@@ -54,7 +55,10 @@ async function startServer() {
     const bindPort = Number(process.env.PORT) || PORT;
     app.listen(bindPort, '0.0.0.0', () => {
       console.log(`[Startup Intelligence] Server running on http://0.0.0.0:${bindPort} (env: ${process.env.NODE_ENV || 'development'})`);
+      logServerEnvDiagnostics();
     });
+  } else {
+    logServerEnvDiagnostics();
   }
 }
 
