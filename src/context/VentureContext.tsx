@@ -78,13 +78,21 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(true);
       setError(null);
       const res = await fetch('/api/ventures');
-      if (!res.ok) throw new Error('Failed to fetch ventures');
+      if (!res.ok) {
+        console.warn(`[VentureContext] /api/ventures returned status ${res.status}. Falling back to clean initial state.`);
+        setVentures([]);
+        setActiveVenture(null);
+        setAnalysisState(null);
+        setActiveView('input');
+        return;
+      }
       const data: Venture[] = await res.json();
-      setVentures(data);
+      const safeVentures = Array.isArray(data) ? data : [];
+      setVentures(safeVentures);
 
-      if (data.length > 0) {
-        if (!activeVenture || !data.some(v => v.id === activeVenture.id)) {
-          const selected = data[0];
+      if (safeVentures.length > 0) {
+        if (!activeVenture || !safeVentures.some(v => v.id === activeVenture.id)) {
+          const selected = safeVentures[0];
           setActiveVenture(selected);
           await fetchAnalysisState(selected.id);
           if (selected.status === 'draft' || selected.status === 'clarifying') {
@@ -99,7 +107,12 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveView('input');
       }
     } catch (err: any) {
-      setError(err.message || 'Error loading ventures');
+      console.warn('[VentureContext] fetchVentures network notice:', err?.message || err);
+      // Soft fallback to empty ventures so the user can immediately use the input view
+      setVentures([]);
+      setActiveVenture(null);
+      setAnalysisState(null);
+      setActiveView('input');
     } finally {
       setIsLoading(false);
     }

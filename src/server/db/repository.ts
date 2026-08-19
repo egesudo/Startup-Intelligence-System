@@ -1770,11 +1770,9 @@ class DelegatingVentureRepository implements IVentureRepository {
     try {
       return await operation(active);
     } catch (err: any) {
-      if (isSchemaMissingError(err) || err?.message === 'SCHEMA_NOT_INITIALIZED') {
-        this.supabaseDisabled = true;
-        return operation(this.inMemoryRepo);
-      }
-      throw err;
+      console.warn('[DelegatingVentureRepository] Supabase operation failed, seamlessly utilizing in-memory store:', err?.message || err);
+      this.supabaseDisabled = true;
+      return operation(this.inMemoryRepo);
     }
   }
 

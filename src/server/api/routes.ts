@@ -6,22 +6,53 @@ import { Router } from 'express';
 import { ventureService } from '../services/ventureService';
 import { orchestrationService } from '../services/orchestrationService';
 import { ventureRepository } from '../db/repository';
+import { checkSupabaseConnection, isSupabaseConfigured } from '../db/supabase';
 import { pdfReportService, ReportArtifactType } from '../services/pdfReportService';
 
 export const apiRouter = Router();
 
-// Health Check
-apiRouter.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// General Health Check
+apiRouter.get('/health', async (req, res) => {
+  const supabaseConfigured = isSupabaseConfigured();
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    supabase: {
+      configured: supabaseConfigured
+    }
+  });
 });
 
-// List all ventures
+// Dedicated Supabase Connection & Credentials Health Check
+apiRouter.get('/supabase/health', async (req, res) => {
+  try {
+    const healthResult = await checkSupabaseConnection();
+    res.json(healthResult);
+  } catch (error: any) {
+    res.status(500).json({
+      configured: false,
+      connected: false,
+      schemaInitialized: false,
+      message: 'Failed to execute Supabase health check',
+      error: error?.message || 'UNKNOWN_ERROR'
+    });
+  }
+});
+
+// List all ventures (Safe resilience pattern)
 apiRouter.get('/ventures', async (req, res) => {
   try {
     const ventures = await ventureService.listVentures();
-    res.json(ventures);
+    res.json(ventures || []);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('[API /ventures] Error listing ventures, returning in-memory or empty fallback:', error);
+    try {
+      const fallbackVentures = await ventureRepository.findAll();
+      res.json(fallbackVentures || []);
+    } catch {
+      res.json([]);
+    }
   }
 });
 

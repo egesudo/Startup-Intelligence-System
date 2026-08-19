@@ -39,15 +39,28 @@ export function isSchemaMissingError(error: any): boolean {
   if (!error) return false;
   const msg = typeof error === 'string' ? error.toLowerCase() : (error.message || '').toLowerCase();
   const code = error.code || '';
+  const status = error.status || error.statusCode;
   return (
     msg.includes('schema cache') ||
     msg.includes('does not exist') ||
     msg.includes('relation "') ||
     msg.includes('not found in the schema cache') ||
     msg.includes('schema_not_initialized') ||
+    msg.includes('invalid api key') ||
+    msg.includes('invalid key') ||
+    msg.includes('jwt') ||
+    msg.includes('unauthorized') ||
+    msg.includes('forbidden') ||
+    msg.includes('fetch failed') ||
+    msg.includes('enotfound') ||
+    msg.includes('econnrefused') ||
+    msg.includes('network') ||
+    status === 401 ||
+    status === 403 ||
     code === '42P01' ||
     code === 'PGRST204' ||
-    code === 'PGRST205'
+    code === 'PGRST205' ||
+    code === 'PGRST301'
   );
 }
 
@@ -57,7 +70,7 @@ export class SupabaseVentureRepository implements IVentureRepository {
   private getClient() {
     const client = getSupabaseAdmin();
     if (!client) {
-      throw new Error('Supabase client is not configured. Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.');
+      throw new Error('SCHEMA_NOT_INITIALIZED');
     }
     return client;
   }
@@ -65,12 +78,13 @@ export class SupabaseVentureRepository implements IVentureRepository {
   private handleQueryError(context: string, error: any): void {
     if (isSchemaMissingError(error)) {
       if (!SupabaseVentureRepository.hasLoggedSchemaNotice) {
-        console.warn('[Supabase Repository] Database schema/tables (e.g. public.ventures) are not yet created in the remote Supabase PostgreSQL instance. Run the migrations in supabase/migrations/ in your Supabase SQL Editor. Seamlessly falling back to in-memory repository.');
+        console.warn(`[Supabase Repository] Supabase query notice (${context}): ${error.message || error}. Falling back to in-memory repository seamlessly.`);
         SupabaseVentureRepository.hasLoggedSchemaNotice = true;
       }
       throw new Error('SCHEMA_NOT_INITIALIZED');
     }
     console.error(`[Supabase Repository] ${context} error:`, error.message || error);
+    throw error;
   }
 
   async findAll(): Promise<Venture[]> {
