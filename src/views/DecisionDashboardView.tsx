@@ -151,28 +151,28 @@ export const DecisionDashboardView: React.FC = () => {
   const keySignals: string[] = rawReasons.length > 0
     ? rawReasons.slice(0, 3)
     : [
-        thesisProblem || activeVenture.problem || 'Doğrulanmış temel müşteri problemi ve net pazar talebi.',
-        research?.findings?.[0]?.statement || 'Ampirik pazar araştırmaları hedef alanda güçlü ticari ilgi olduğunu gösteriyor.',
-        business?.businessModel?.pricingModel ? `Net monetizasyon modeli: ${business.businessModel.pricingModel}` : 'Öngörülebilir birim ekonomi ve tekrarlayan gelir potansiyeli.'
+        thesisProblem || activeVenture.problem || (language === 'tr' ? 'Doğrulanmış temel müşteri problemi ve net pazar talebi.' : 'Validated core customer pain point and distinct market demand.'),
+        research?.findings?.[0]?.statement || (language === 'tr' ? 'Ampirik pazar araştırmaları hedef alanda güçlü ticari ilgi olduğunu gösteriyor.' : 'Empirical market research indicates active commercial interest in target domain.'),
+        business?.businessModel?.pricingModel ? `${language === 'tr' ? 'Monetizasyon modeli:' : 'Monetization model:'} ${business.businessModel.pricingModel}` : (language === 'tr' ? 'Öngörülebilir birim ekonomi ve tekrarlayan gelir potansiyeli.' : 'Predictable unit economics and recurring revenue potential.')
       ];
 
   // 2. Key Risks (2–3 bullet points)
   const rawRisks = redTeam?.criticalRisks || [];
   const keyRisks: { title: string; desc: string; severity: string }[] = rawRisks.length > 0
     ? rawRisks.slice(0, 3).map((r) => ({
-        title: r.title || 'Risk Faktörü',
-        desc: r.description || r.failureMechanism || 'Red Team analizi tarafından tespit edilen zaafiyet.',
+        title: r.title || (language === 'tr' ? 'Risk Faktörü' : 'Risk Factor'),
+        desc: r.description || r.failureMechanism || (language === 'tr' ? 'Risk analizi tarafından tespit edilen zaafiyet.' : 'Vulnerability identified by risk analysis.'),
         severity: r.severity || 'HIGH'
       }))
     : [
         {
-          title: 'Müşteri Edinme Maliyeti Belirsizliği',
-          desc: 'Ödeme istekliliği ve gidiş-dönüş satış döngüsü doğrulanmalı.',
+          title: language === 'tr' ? 'Müşteri Edinme Maliyeti Belirsizliği' : 'Customer Acquisition Cost Uncertainty',
+          desc: language === 'tr' ? 'Ödeme istekliliği ve satış döngüsü doğrulanmalıdır.' : 'Willingness to pay and sales cycle duration must be validated.',
           severity: 'HIGH'
         },
         {
-          title: 'Hızlı Kopyalanma & Hendek Zayıflığı',
-          desc: 'Mevcut oyuncuların benzer özellikleri hızla entegre etme riski.',
+          title: language === 'tr' ? 'Hızlı Kopyalanma & Düşük Hendek' : 'Fast Replication & Shallow Moat',
+          desc: language === 'tr' ? 'Mevcut oyuncuların benzer özellikleri entegre etme riski.' : 'Risk of incumbents absorbing key capabilities into existing suites.',
           severity: 'MEDIUM'
         }
       ];
@@ -182,8 +182,16 @@ export const DecisionDashboardView: React.FC = () => {
   const nextSteps = rawNextActions.map((a: any, idx: number) => ({
     id: a.id || `action-${idx}`,
     stepNumber: idx + 1,
-    title: a.action || a.title || (idx === 0 ? '15 potansiyel müşteri ile problem mülakatı yap' : idx === 1 ? '3 bağlayıcı pilot anlaşma ile prototipi test et' : 'Ödeme istekliliğini ve birim ekonomiyi doğrula'),
-    purpose: a.purpose || a.rationale || (idx === 0 ? 'Müşteri acı noktasını ve bütçe ayrımını doğrulamak' : idx === 1 ? 'Üretime geçmeden önce çözüm-pazar uyumunu garantiye almak' : 'Fiyatlandırma gücünü ve müşteri ömür boyu değerini netleştirmek'),
+    title: a.action || a.title || (idx === 0 
+      ? (language === 'tr' ? '15 potansiyel müşteri ile problem mülakatı yapın' : 'Conduct problem discovery interviews with 15 target buyers') 
+      : idx === 1 
+      ? (language === 'tr' ? '3 bağlayıcı pilot anlaşma ile prototipi test edin' : 'Test prototype with 3 binding pilot commitments') 
+      : (language === 'tr' ? 'Ödeme istekliliğini ve birim ekonomiyi doğrulayın' : 'Validate willingness to pay and unit economics thresholds')),
+    purpose: a.purpose || a.rationale || (idx === 0 
+      ? (language === 'tr' ? 'Müşteri acı noktasını ve bütçe ayrımını doğrulamak' : 'Confirm customer pain intensity and budget allocation authority') 
+      : idx === 1 
+      ? (language === 'tr' ? 'Üretime geçmeden önce çözüm-pazar uyumunu garantiye almak' : 'Ensure solution-market fit before investing in scaled development') 
+      : (language === 'tr' ? 'Fiyatlandırma gücünü ve müşteri ömür boyu değerini netleştirmek' : 'Clarify pricing power and customer lifetime value')),
     isCompleted: !!a.isCompleted
   }));
 
@@ -206,7 +214,7 @@ export const DecisionDashboardView: React.FC = () => {
       setDownloadingType(type);
       await downloadPdfReport(activeVenture.id, type, activeVenture.title);
     } catch (err: any) {
-      alert(`İndirme başarısız: ${err.message}`);
+      alert(language === 'tr' ? `İndirme başarısız: ${err.message}` : `Download failed: ${err.message}`);
     } finally {
       setDownloadingType(null);
     }
@@ -222,7 +230,7 @@ export const DecisionDashboardView: React.FC = () => {
 
     await recordDecision(activeVenture.id, {
       choice: selectedChoice,
-      rationale: rationale || 'Kurucu tarafından onaylanan stratejik karar.',
+      rationale: rationale || (language === 'tr' ? 'Kurucu tarafından onaylanan stratejik karar.' : 'Strategic decision confirmed by founder.'),
       alignmentWithAI: alignment,
       overrideReason: alignment === 'OVERRIDDEN' ? overrideReason : undefined
     });
@@ -257,7 +265,7 @@ export const DecisionDashboardView: React.FC = () => {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-bold uppercase tracking-wider font-mono px-2 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
-              Girişim İstihbaratı Dosyası
+              {language === 'tr' ? 'Girişim Analiz Dosyası' : 'Venture Evaluation Dossier'}
             </span>
             <span className="text-xs text-slate-400 font-mono">ID: {activeVenture.id.slice(0, 8)}</span>
 
@@ -265,10 +273,12 @@ export const DecisionDashboardView: React.FC = () => {
             {(isLoadedFromCache || activeCacheEntry) && (
               <span 
                 className="inline-flex items-center gap-1 text-[10px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                title="Bu girişim fikri daha önce analiz edilmiş olup sonucu deterministik önbellekten (IndexedDB/Bellek) yüklendi. Skor ve raporlar %100 sabittir."
+                title={language === 'tr' 
+                  ? "Bu girişim fikri daha önce analiz edilmiş olup sonucu deterministik önbellekten (IndexedDB/Bellek) yüklendi. Skor ve raporlar %100 sabittir."
+                  : "This startup idea was evaluated previously; results loaded deterministically from cache (IndexedDB/Memory) for 100% reproducible scoring."}
               >
                 <Database className="w-3 h-3 text-emerald-500" />
-                <span>Önbellek Doğrulandı {activeCacheEntry?.hitCount && activeCacheEntry.hitCount > 1 ? `(${activeCacheEntry.hitCount}x Hit)` : ''}</span>
+                <span>{language === 'tr' ? 'Önbellek Doğrulandı' : 'Verified from Cache'} {activeCacheEntry?.hitCount && activeCacheEntry.hitCount > 1 ? `(${activeCacheEntry.hitCount}x Hit)` : ''}</span>
               </span>
             )}
           </div>
@@ -285,10 +295,10 @@ export const DecisionDashboardView: React.FC = () => {
             onClick={() => reAnalyzeVenture(activeVenture.id, true)}
             disabled={isAnalyzing}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-bold border border-slate-200 dark:border-slate-800 bg-slate-100/80 dark:bg-slate-900/80 hover:border-red-500/40 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
-            title="Önbelleği baypas ederek sıfırdan yapay zeka ajanlarını yeniden çalıştır"
+            title={language === 'tr' ? "Önbelleği baypas ederek sıfırdan yapay zeka analizini yeniden çalıştır" : "Bypass cache and run fresh analysis pipeline"}
           >
             <RotateCcw className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
-            <span>Sıfırdan Analiz Et (Bypass)</span>
+            <span>{language === 'tr' ? 'Yeniden Analiz Et (Önbelleksiz)' : 'Re-Analyze (Bypass Cache)'}</span>
           </button>
           
           <button
@@ -296,7 +306,7 @@ export const DecisionDashboardView: React.FC = () => {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold bg-red-600 hover:bg-red-500 text-white shadow-sm transition-all cursor-pointer"
           >
             <FileText className="w-4 h-4" />
-            <span>PDF Raporunu Aç</span>
+            <span>{language === 'tr' ? 'PDF Raporunu Aç' : 'Open PDF Report'}</span>
           </button>
         </div>
       </section>
@@ -310,7 +320,7 @@ export const DecisionDashboardView: React.FC = () => {
           <div className="flex items-center space-x-6">
             <div className="space-y-1">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                Bileşik Girişim Skoru
+                {language === 'tr' ? 'Girişim Değerlendirme Skoru' : 'Composite Venture Score'}
               </div>
               <div className="flex items-baseline space-x-1.5">
                 <span className="text-4xl sm:text-5xl font-black text-slate-900 dark:text-white font-mono tracking-tight">
@@ -324,7 +334,7 @@ export const DecisionDashboardView: React.FC = () => {
 
             <div className="space-y-1">
               <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                Nihai Karar Tavsiyesi
+                {language === 'tr' ? 'Nihai Karar Önerisi' : 'Final Decision Recommendation'}
               </div>
               <div className={`inline-flex items-center px-3.5 py-1.5 rounded-xl text-sm font-black font-mono border ${getTierBadgeStyle(displayAiRec)}`}>
                 {displayAiRec}
@@ -337,19 +347,21 @@ export const DecisionDashboardView: React.FC = () => {
             {judge?.recommendationRationale?.rationaleStatement ||
              judge?.synthesis ||
              judge?.executiveSummary ||
-             'Çoklu-ajan istihbarat denetimi tamamlandı. Aşağıdaki sinyalleri, riskleri ve de-risking adımlarını inceleyin.'}
+             (language === 'tr' 
+               ? 'Kapsamlı girişim analizi ve değerlendirmesi tamamlandı. Aşağıdaki sinyalleri, riskleri ve öncelikli eylem adımlarını inceleyin.'
+               : 'Multi-perspective venture audit completed. Review the primary signals, risk factors, and de-risking actions below.')}
           </div>
         </div>
 
-        {/* 4 Dimension Readiness Indicators */}
+        {/* 4 Dimension Readiness Indicators (25 points each = 100) */}
         <div className="space-y-2.5">
           <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-            4 Temel Hazırlık Boyutu
+            {language === 'tr' ? "4 Temel Değerlendirme Boyutu (25'er Puan)" : '4 Core Evaluation Dimensions (25 Pts Each)'}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Problem Aciliyeti</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{t.dashboard.problemUrgency}</span>
                 <span className="font-bold text-slate-900 dark:text-white">{dimProblem}/25</span>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -359,7 +371,7 @@ export const DecisionDashboardView: React.FC = () => {
 
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">İş Modeli & Gelir</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{t.dashboard.marketViability}</span>
                 <span className="font-bold text-slate-900 dark:text-white">{dimBusiness}/25</span>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -369,7 +381,7 @@ export const DecisionDashboardView: React.FC = () => {
 
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">Savunma Hendekleri</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{t.dashboard.defensibilityMoat}</span>
                 <span className="font-bold text-slate-900 dark:text-white">{dimMoat}/25</span>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -379,7 +391,7 @@ export const DecisionDashboardView: React.FC = () => {
 
             <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
               <div className="flex items-center justify-between text-xs font-mono">
-                <span className="font-semibold text-slate-700 dark:text-slate-300">İcraat & Süreç</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">{t.dashboard.executionRisk}</span>
                 <span className="font-bold text-slate-900 dark:text-white">{dimExecution}/25</span>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -398,7 +410,7 @@ export const DecisionDashboardView: React.FC = () => {
         <div className="p-6 rounded-3xl border bg-white/70 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 backdrop-blur-sm shadow-xs space-y-4">
           <div className="flex items-center space-x-2 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-bold uppercase tracking-wider">
             <CheckCircle2 className="w-4 h-4" />
-            <span>Ana Güçlü Sinyaller</span>
+            <span>{language === 'tr' ? 'Öne Çıkan Güçlü Yönler' : 'Key Positive Signals'}</span>
           </div>
           <ul className="space-y-3">
             {keySignals.map((signal, idx) => (
@@ -414,7 +426,7 @@ export const DecisionDashboardView: React.FC = () => {
         <div className="p-6 rounded-3xl border bg-white/70 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 backdrop-blur-sm shadow-xs space-y-4">
           <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400 font-mono text-xs font-bold uppercase tracking-wider">
             <AlertTriangle className="w-4 h-4" />
-            <span>Kritik Risk Faktörleri</span>
+            <span>{language === 'tr' ? 'Kritik Risk Faktörleri' : 'Critical Risk Factors'}</span>
           </div>
           <ul className="space-y-3">
             {keyRisks.map((risk, idx) => (
@@ -435,7 +447,7 @@ export const DecisionDashboardView: React.FC = () => {
         <div className="p-6 rounded-3xl border bg-white/70 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 backdrop-blur-sm shadow-xs space-y-4">
           <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 font-mono text-xs font-bold uppercase tracking-wider">
             <ArrowRight className="w-4 h-4" />
-            <span>3 Öncelikli Aksiyon</span>
+            <span>{language === 'tr' ? '3 Öncelikli Eylem Adımı' : '3 Priority Action Items'}</span>
           </div>
           <div className="space-y-2.5">
             {nextSteps.map((step) => (
@@ -469,16 +481,18 @@ export const DecisionDashboardView: React.FC = () => {
 
       {/* ─────────────────────────────────────────────────────────────
           4. LEVEL 2 & 3: AŞAMALI GÖSTERİM (PROGRESSIVE DISCLOSURE)
-             4 ÖZEL AJAN İSTİHBARAT DOSYASI (INLINE ACCORDION)
+             4 ÖZEL ANALİZ DOSYASI (INLINE ACCORDION)
           ───────────────────────────────────────────────────────────── */}
       <section className="space-y-5">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
-              Derinlemesine Ajan İstihbarat Dosyaları
+              {language === 'tr' ? 'Detaylı Analiz ve Değerlendirme Dosyaları' : 'In-Depth Analysis & Evaluation Dossiers'}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              İstediğiniz alanın üzerine tıklayarak tüm teknik detayları ve grafiklerini ferahça genişletin.
+              {language === 'tr' 
+                ? 'İstediğiniz alanın üzerine tıklayarak tüm teknik detayları ve grafiklerini genişletin.'
+                : 'Click any module to expand comprehensive findings, empirical charts, and breakdown.'}
             </p>
           </div>
 
@@ -489,12 +503,12 @@ export const DecisionDashboardView: React.FC = () => {
             {areAllExpanded ? (
               <>
                 <Minimize2 className="w-3.5 h-3.5" />
-                <span>Tümünü Daralt</span>
+                <span>{language === 'tr' ? 'Tümünü Daralt' : 'Collapse All'}</span>
               </>
             ) : (
               <>
                 <Maximize2 className="w-3.5 h-3.5" />
-                <span>Tümünü Genişlet</span>
+                <span>{language === 'tr' ? 'Tümünü Genişlet' : 'Expand All'}</span>
               </>
             )}
           </button>
@@ -518,14 +532,14 @@ export const DecisionDashboardView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Researcher Agent — Pazar & Doğrulama
+                      {language === 'tr' ? 'Pazar Araştırması & Problem Doğrulama' : 'Market Research & Problem Validation'}
                     </h3>
                     <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-                      {research ? 'Tamamlandı' : 'Bekliyor'}
+                      {research ? (language === 'tr' ? 'Tamamlandı' : 'Completed') : (language === 'tr' ? 'Bekliyor' : 'Pending')}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {sources.length} doğrulanmış kaynak • {research?.findings?.length || 0} ampirik bulgu • TAM/SAM/SOM analizi
+                    {sources.length} {language === 'tr' ? 'doğrulanmış kaynak' : 'verified sources'} • {research?.findings?.length || 0} {language === 'tr' ? 'ampirik bulgu' : 'empirical findings'} • TAM/SAM/SOM
                   </p>
                 </div>
               </div>
@@ -540,7 +554,7 @@ export const DecisionDashboardView: React.FC = () => {
                   className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-200 dark:border-slate-700 hover:text-red-600 dark:hover:text-red-400 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>PDF İndir</span>
+                  <span>{language === 'tr' ? 'PDF İndir' : 'Download PDF'}</span>
                 </button>
                 <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
                   {expandedAgents.researcher ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -771,14 +785,14 @@ export const DecisionDashboardView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Business Agent — İş Modeli & Birim Ekonomi
+                      {language === 'tr' ? 'İş Modeli & Birim Ekonomi Analizi' : 'Business Model & Unit Economics'}
                     </h3>
                     <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-                      {business ? 'Tamamlandı' : 'Bekliyor'}
+                      {business ? (language === 'tr' ? 'Tamamlandı' : 'Completed') : (language === 'tr' ? 'Bekliyor' : 'Pending')}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Tahmini Marj: {business?.estimatedMarginProfile || '82%'} • Fiyatlandırma Gücü: {business?.pricingPower || 'STRONG'} • CAC/LTV Analizi
+                    {language === 'tr' ? 'Tahmini Marj:' : 'Estimated Margin:'} {business?.estimatedMarginProfile || '82%'} • {language === 'tr' ? 'Fiyatlandırma Gücü:' : 'Pricing Power:'} {business?.pricingPower || 'STRONG'} • CAC/LTV
                   </p>
                 </div>
               </div>
@@ -793,7 +807,7 @@ export const DecisionDashboardView: React.FC = () => {
                   className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-200 dark:border-slate-700 hover:text-red-600 dark:hover:text-red-400 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>PDF İndir</span>
+                  <span>{language === 'tr' ? 'PDF İndir' : 'Download PDF'}</span>
                 </button>
                 <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
                   {expandedAgents.business ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -807,41 +821,41 @@ export const DecisionDashboardView: React.FC = () => {
                 {/* 1. Business Summary Scorecards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="p-4 rounded-2xl bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">TİCARİ UYGULANABİLİRLİK</span>
+                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">{language === 'tr' ? 'TİCARİ UYGULANABİLİRLİK' : 'COMMERCIAL VIABILITY'}</span>
                     <span className="text-xl font-mono font-black text-emerald-600 dark:text-emerald-400">HIGH</span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">%80+ brüt marj potansiyeli</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">{language === 'tr' ? '%80+ brüt marj potansiyeli' : '80%+ gross margin potential'}</span>
                   </div>
                   <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">İŞ MODELİ SKORU</span>
+                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">{language === 'tr' ? 'İŞ MODELİ SKORU' : 'BUSINESS MODEL SCORE'}</span>
                     <span className="text-xl font-mono font-black text-slate-900 dark:text-white">74 <span className="text-xs text-slate-400 font-normal">/ 100</span></span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">Kanıta dayalı hesaplama</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">{language === 'tr' ? 'Kanıta dayalı hesaplama' : 'Evidence-based projection'}</span>
                   </div>
                   <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">FİYATLANDIRMA GÜCÜ</span>
+                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">{language === 'tr' ? 'FİYATLANDIRMA GÜCÜ' : 'PRICING POWER'}</span>
                     <span className="text-xl font-mono font-black text-emerald-600 dark:text-emerald-400">{business?.pricingPower || 'STRONG'}</span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">$299 - $899 / ay SaaS</span>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">$299 - $899 / {language === 'tr' ? 'ay SaaS' : 'mo SaaS'}</span>
                   </div>
                 </div>
 
                 {/* 2 & 4. Customer/Buyer & Revenue Flow */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-                    <h4 className="text-[10px] font-mono uppercase text-slate-400 font-bold">2. Müşteri & Alıcı Ayrımı</h4>
+                    <h4 className="text-[10px] font-mono uppercase text-slate-400 font-bold">{language === 'tr' ? '2. Müşteri & Alıcı Ayrımı' : '2. User vs Buyer Persona'}</h4>
                     <div className="space-y-1.5 text-[11px]">
-                      <div><strong className="text-blue-500 font-mono">User (Kullanıcı):</strong> Operasyon Uzmanı (Günlük manuel sürtünme)</div>
-                      <div><strong className="text-emerald-500 font-mono">Buyer (Alıcı):</strong> VP / Operasyon Direktörü (Bütçe & ROI Yetkilisi)</div>
-                      <div><strong className="text-slate-400 font-mono">Motivasyon:</strong> 4-6 saat/hafta iş gücü tasarrufu & sıfır mutabakat hatası</div>
+                      <div><strong className="text-blue-500 font-mono">{language === 'tr' ? 'Kullanıcı (User):' : 'User:'}</strong> {language === 'tr' ? 'Operasyon Uzmanı (Günlük manuel iş yükü)' : 'Operations Specialist (Daily workflow pain)'}</div>
+                      <div><strong className="text-emerald-500 font-mono">{language === 'tr' ? 'Alıcı (Buyer):' : 'Buyer:'}</strong> {language === 'tr' ? 'Operasyon Direktörü / VP (Bütçe & ROI Yetkilisi)' : 'Director of Operations / VP (Budget & ROI Owner)'}</div>
+                      <div><strong className="text-slate-400 font-mono">{language === 'tr' ? 'Motivasyon:' : 'Motivation:'}</strong> {language === 'tr' ? 'Haftalık iş gücü tasarrufu & sıfır hata garantisi' : 'Weekly labor-hour savings and error mitigation'}</div>
                     </div>
                   </div>
 
                   <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-                    <h4 className="text-[10px] font-mono uppercase text-slate-400 font-bold">4. İş Modeli Akış Şeması</h4>
+                    <h4 className="text-[10px] font-mono uppercase text-slate-400 font-bold">{language === 'tr' ? '4. İş Modeli Akış Şeması' : '4. Revenue Monetization Flow'}</h4>
                     <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 text-[11px] font-mono flex items-center justify-between text-center">
-                      <span>ALICI (Direktör)</span>
+                      <span>{language === 'tr' ? 'ALICI (Direktör)' : 'BUYER (Director)'}</span>
                       <span className="text-emerald-500 font-bold">➔</span>
-                      <span>ABONELİK ($299+)</span>
+                      <span>{language === 'tr' ? 'ABONELİK ($299+)' : 'SUBSCRIPTION ($299+)'}</span>
                       <span className="text-emerald-500 font-bold">➔</span>
-                      <span className="text-blue-500 font-bold">ARR GELİRİ</span>
+                      <span className="text-blue-500 font-bold">{language === 'tr' ? 'ARR GELİRİ' : 'RECURRING ARR'}</span>
                     </div>
                   </div>
                 </div>
@@ -849,28 +863,28 @@ export const DecisionDashboardView: React.FC = () => {
                 {/* 6. Pricing & Unit Economics Classification */}
                 <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                    6. Fiyatlandırma & Birim Ekonomi Sınıflandırması
+                    {language === 'tr' ? '6. Fiyatlandırma & Birim Ekonomi Sınıflandırması' : '6. Pricing & Unit Economics Profile'}
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center text-xs">
                     <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                       <span className="text-[9px] font-mono text-amber-500 block font-bold">[ESTIMATED]</span>
-                      <span className="font-bold text-slate-900 dark:text-white">$299 - $899 / ay</span>
-                      <span className="text-[10px] text-slate-400 block">Hedef Fiyat</span>
+                      <span className="font-bold text-slate-900 dark:text-white">$299 - $899 / {language === 'tr' ? 'ay' : 'mo'}</span>
+                      <span className="text-[10px] text-slate-400 block">{language === 'tr' ? 'Hedef Fiyat' : 'Target Price'}</span>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                       <span className="text-[9px] font-mono text-amber-500 block font-bold">[ESTIMATED]</span>
                       <span className="font-bold text-emerald-500">%80 - %85</span>
-                      <span className="text-[10px] text-slate-400 block">Brüt Marj</span>
+                      <span className="text-[10px] text-slate-400 block">{language === 'tr' ? 'Brüt Marj' : 'Gross Margin'}</span>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                       <span className="text-[9px] font-mono text-red-500 block font-bold">[ASSUMPTION]</span>
-                      <span className="font-bold text-slate-900 dark:text-white">Pilot Doğrulama</span>
-                      <span className="text-[10px] text-slate-400 block">CAC Maliyeti</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{language === 'tr' ? 'Pilot Doğrulama' : 'Pilot Validation'}</span>
+                      <span className="text-[10px] text-slate-400 block">{language === 'tr' ? 'CAC Maliyeti' : 'CAC Estimate'}</span>
                     </div>
                     <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                       <span className="text-[9px] font-mono text-red-500 block font-bold">[ASSUMPTION]</span>
-                      <span className="font-bold text-slate-900 dark:text-white">&lt; 6 Ay</span>
-                      <span className="text-[10px] text-slate-400 block">Payback Süresi</span>
+                      <span className="font-bold text-slate-900 dark:text-white">&lt; 6 {language === 'tr' ? 'Ay' : 'Months'}</span>
+                      <span className="text-[10px] text-slate-400 block">{language === 'tr' ? 'Payback Süresi' : 'Payback Period'}</span>
                     </div>
                   </div>
                 </div>
@@ -883,39 +897,10 @@ export const DecisionDashboardView: React.FC = () => {
                   pricingModel={business?.businessModel?.pricingModel || '$299 – $899 / ay'}
                 />
 
-                {/* 9 & 10. Commercial Risks & Unknowns */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-                    <h4 className="text-[10px] font-mono uppercase text-slate-400 font-bold">9. Ticari Riskler (Öne Çıkan)</h4>
-                    <div className="space-y-1.5 text-[11px]">
-                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                        <strong className="text-red-500 font-mono">01 — Satış Döngüsü Gecikmesi:</strong> 3-6 aylık kurumsal onay süresi nakit akışını öteler.
-                      </div>
-                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                        <strong className="text-amber-500 font-mono">02 — Fiyat Eşiği Belirsizliği:</strong> $299+ üzerindeki esneklik müşteri görüşmeleriyle test edilmeli.
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-                    <h4 className="text-[10px] font-mono uppercase text-slate-400 font-bold">10. Önemli Bilinmeyenler</h4>
-                    <div className="space-y-1.5 text-[11px]">
-                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                        <span className="font-bold text-slate-900 dark:text-white">Self-servis mi yoksa satış ekibi mi?</span>
-                        <div className="text-slate-400 text-[10px] font-mono">Doğrulama: 1 canlı pilot akış ile aktivasyon ölçümü.</div>
-                      </div>
-                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                        <span className="font-bold text-slate-900 dark:text-white">Hesap genişleme (Expansion) hızı ne olacak?</span>
-                        <div className="text-slate-400 text-[10px] font-mono">Doğrulama: 3 pilot müşteride kullanım artışını izleyin.</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* 12. Business Verdict */}
                 <div className="p-4 rounded-xl bg-slate-900 text-white border border-slate-800 text-xs font-mono font-bold flex items-center justify-between">
-                  <span>12. İŞ HÜKMÜ: %80+ brüt marj ile ticari potansiyel güçlü.</span>
-                  <span className="text-emerald-400 uppercase">10 Fiyat Mülakatı + 2 LOI Alınmalı</span>
+                  <span>{language === 'tr' ? 'İŞ DEĞERLENDİRMESİ: %80+ brüt marj ile ticari potansiyel güçlü.' : 'BUSINESS VERDICT: Strong commercial profile with 80%+ gross margin target.'}</span>
+                  <span className="text-emerald-400 uppercase">{language === 'tr' ? '10 Fiyat Mülakatı + 2 LOI Alınmalı' : 'Next: 10 Pricing Interviews + 2 LOIs'}</span>
                 </div>
               </div>
             )}
@@ -936,14 +921,14 @@ export const DecisionDashboardView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Red Team Agent — Kritik Riskler & Zaafiyetler
+                      {language === 'tr' ? 'Kritik Riskler & Zaafiyet Analizi' : 'Critical Risks & Vulnerability Analysis'}
                     </h3>
                     <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-                      {redTeam ? 'Tamamlandı' : 'Bekliyor'}
+                      {redTeam ? (language === 'tr' ? 'Tamamlandı' : 'Completed') : (language === 'tr' ? 'Bekliyor' : 'Pending')}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {redTeam?.criticalRisks?.length || 0} kritik risk ve kill vektörü • Zaafiyet matrisi ve karşı önlemler
+                    {redTeam?.criticalRisks?.length || 0} {language === 'tr' ? 'kritik risk vektörü • Zaafiyet ve karşı önlem analizi' : 'critical risk vectors • Vulnerability and mitigation roadmap'}
                   </p>
                 </div>
               </div>
@@ -958,7 +943,7 @@ export const DecisionDashboardView: React.FC = () => {
                   className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-200 dark:border-slate-700 hover:text-red-600 dark:hover:text-red-400 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>PDF İndir</span>
+                  <span>{language === 'tr' ? 'PDF İndir' : 'Download PDF'}</span>
                 </button>
                 <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
                   {expandedAgents.red_team ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -973,24 +958,26 @@ export const DecisionDashboardView: React.FC = () => {
                 <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div>
-                      <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">1. Risk Özeti</span>
+                      <span className="text-[10px] font-mono uppercase text-slate-400 font-bold">{language === 'tr' ? '1. Risk Özeti' : '1. Risk Summary'}</span>
                       <div className="text-xl font-black font-mono text-red-600 dark:text-red-400 mt-0.5">
                         {redTeam?.overallRiskLevel || 'HIGH'} RISK • VALIDATE FIRST
                       </div>
                     </div>
                     <div className="flex items-center gap-4 text-xs font-mono">
                       <div>
-                        <span className="text-slate-400 block text-[10px]">RİSK SKORU</span>
+                        <span className="text-slate-400 block text-[10px]">{language === 'tr' ? 'RİSK SKORU' : 'RISK SCORE'}</span>
                         <span className="font-bold text-slate-900 dark:text-white">{redTeam?.riskScore || 78}/100</span>
                       </div>
                       <div>
-                        <span className="text-slate-400 block text-[10px]">GÜVENİLİRLİK</span>
+                        <span className="text-slate-400 block text-[10px]">{language === 'tr' ? 'GÜVENİLİRLİK' : 'CONFIDENCE'}</span>
                         <span className="font-bold text-slate-700 dark:text-slate-300">{redTeam?.confidence || 'HIGH'}</span>
                       </div>
                     </div>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {redTeam?.executiveSummary || 'Birim ekonomi ve müşteri ödeme isteği etrafında kritik kırılganlıklar tespit edildi. Temel varsayımlar henüz doğrulanmadı. Geliştirmeden önce doğrulama pilotu şarttır.'}
+                    {redTeam?.executiveSummary || (language === 'tr' 
+                      ? 'Birim ekonomi ve müşteri ödeme isteği etrafında kritik kırılganlıklar tespit edildi. Temel varsayımlar henüz doğrulanmadı. Geliştirmeden önce doğrulama pilotu şarttır.'
+                      : 'Critical vulnerabilities identified around customer willingness to pay and conversion cycles. Early prototype testing required before full investment.')}
                   </p>
                 </div>
 
@@ -998,29 +985,23 @@ export const DecisionDashboardView: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                      2. Kritik Riskler (Top 3)
+                      {language === 'tr' ? '2. Kritik Riskler' : '2. Critical Risk Factors'}
                     </h4>
                     <span className="text-[10px] font-mono text-slate-400">Strictly 3 Top Vectors</span>
                   </div>
                   <div className="grid grid-cols-1 gap-3">
                     {(redTeam?.criticalRisks || [
                       {
-                        title: 'Müşteri Ödeme İsteği & Satış Döngüsü',
+                        title: language === 'tr' ? 'Müşteri Ödeme İsteği & Satış Döngüsü' : 'Customer Willingness to Pay & Sales Cycle',
                         severity: 'HIGH',
-                        evidence: 'Benzer yazılımlar 6-9 aylık satın alma döngüleri ve yüksek indirim baskısıyla karşılaşıyor.',
-                        whyItMatters: 'Eğer CAC geri dönüş eşiğini aşarsa, sürdürülebilir ölçeklenmeye ulaşmadan birim ekonomi negatife döner.'
+                        evidence: language === 'tr' ? 'Benzer yazılımlar 6-9 aylık satın alma döngüleri ve indirim baskısıyla karşılaşıyor.' : 'Similar enterprise tools experience 6-9 month procurement cycles.',
+                        whyItMatters: language === 'tr' ? 'CAC geri dönüş süresi uzarsa birim ekonomi negatif kalır.' : 'Extended payback periods deplete runway before positive unit margins.'
                       },
                       {
-                        title: 'Mevcut Oyuncuların Özelliği Kopyalaması & Düşük Hendek',
+                        title: language === 'tr' ? 'Mevcut Oyuncuların Özelliği Kopyalaması & Düşük Hendek' : 'Incumbent Feature Replication & Shallow Moat',
                         severity: 'HIGH',
-                        evidence: 'Yerleşik pazar liderleri mevcut kurumsal müşterilerine bitişik modülleri ücretsiz ekliyor.',
-                        whyItMatters: 'Farklılaşma en az 10x ekonomik avantaj sunmadığı sürece geçiş sürtünmesi aşılamaz.'
-                      },
-                      {
-                        title: 'Operasyonel Karmaşıklık & Entegrasyon Yükü',
-                        severity: 'MEDIUM',
-                        evidence: 'Müşteri altyapısı özel kurulum ve sürekli teknik destek personeli gerektiriyor.',
-                        whyItMatters: 'Yüksek destek maliyeti brüt kar marjını hedeflenen yazılım standartlarının altına düşürür.'
+                        evidence: language === 'tr' ? 'Yerleşik pazar liderleri benzer özellikleri mevcut paketlerine ekleyebilir.' : 'Incumbents bundle adjacent features into existing enterprise suites.',
+                        whyItMatters: language === 'tr' ? 'En az 10x değer üretilmedikçe geçiş sürtünmesi aşılamaz.' : 'Switching costs remain high without an undeniable 10x ROI advantage.'
                       }
                     ]).slice(0, 3).map((r: any, idx: number) => (
                       <div
@@ -1038,11 +1019,11 @@ export const DecisionDashboardView: React.FC = () => {
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-[11px]">
                           <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                            <span className="text-slate-400 font-bold block text-[10px] uppercase">Kanıt:</span>
+                            <span className="text-slate-400 font-bold block text-[10px] uppercase">{language === 'tr' ? 'Kanıt:' : 'Evidence:'}</span>
                             <span className="text-slate-700 dark:text-slate-300">{r.evidence || r.supportingEvidence || r.description}</span>
                           </div>
                           <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                            <span className="text-slate-400 font-bold block text-[10px] uppercase">Neden Önemli:</span>
+                            <span className="text-slate-400 font-bold block text-[10px] uppercase">{language === 'tr' ? 'Neden Önemli:' : 'Why It Matters:'}</span>
                             <span className="text-slate-700 dark:text-slate-300">{r.whyItMatters || r.potentialImpact || r.failureMechanism}</span>
                           </div>
                         </div>
@@ -1051,112 +1032,23 @@ export const DecisionDashboardView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 3. Unverified Assumptions Table */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                      3. Doğrulanmamış Varsayımlar
-                    </h4>
-                    <span className="text-[10px] font-mono text-slate-400">Varsayım asla olgu olarak kabul edilmez</span>
-                  </div>
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-mono text-slate-400 uppercase">
-                        <th className="py-2 px-2">VARSAYIM</th>
-                        <th className="py-2 px-2 w-36">DURUM</th>
-                        <th className="py-2 px-2 w-20">ETKİ</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-[11px]">
-                      <tr>
-                        <td className="py-2.5 px-2 text-slate-800 dark:text-slate-200">Hedef müşteriler mevcut iş akışlarını SaaS ile değiştirmeye isteklidir.</td>
-                        <td className="py-2.5 px-2 font-mono text-amber-500 font-bold">Unverified</td>
-                        <td className="py-2.5 px-2 font-mono font-bold text-red-500">HIGH</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-2 text-slate-800 dark:text-slate-200">Yıllık sözleşme değeri müşteri edinme ve kurulum maliyetini karşılar.</td>
-                        <td className="py-2.5 px-2 font-mono text-amber-500 font-bold">Partially Verified</td>
-                        <td className="py-2.5 px-2 font-mono font-bold text-red-500">HIGH</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2.5 px-2 text-slate-800 dark:text-slate-200">Mevcut sistemlerle entegrasyon 14 gün içinde tamamlanabilir.</td>
-                        <td className="py-2.5 px-2 font-mono text-amber-500 font-bold">Unverified</td>
-                        <td className="py-2.5 px-2 font-mono font-bold text-amber-500">MEDIUM</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* 4. Visual Risk Analysis */}
+                {/* 6. Validation Actions */}
                 <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                    4. Görsel Risk Seviyeleri
-                  </h4>
-                  <div className="space-y-3 text-xs">
-                    <div>
-                      <div className="flex justify-between font-mono text-[11px] mb-1">
-                        <span>Müşteri Ödeme İsteği & Fiyatlandırma Gücü</span>
-                        <span className="font-bold text-red-500">HIGH</span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="bg-red-500 h-full w-[82%]" />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between font-mono text-[11px] mb-1">
-                        <span>Mevcut Rekabet & Geçiş Hendeği</span>
-                        <span className="font-bold text-red-500">HIGH</span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="bg-red-500 h-full w-[74%]" />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between font-mono text-[11px] mb-1">
-                        <span>Müşteri Edinimi & Satış Döngüsü</span>
-                        <span className="font-bold text-amber-500">MEDIUM</span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="bg-amber-500 h-full w-[60%]" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5. Decision-Changing Evidence */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                    5. Kararı Değiştirecek Kanıtlar
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 space-y-1">
-                      <span className="font-bold font-mono text-[10px] uppercase text-emerald-600 dark:text-emerald-400 block">Olumlu Kanıt (İlerletir):</span>
-                      <p>En az 5 hedef kurumsal müşteri bağlayıcı niyet veya ücretli pilot sözleşmesi imzalar.</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-800 dark:text-red-300 space-y-1">
-                      <span className="font-bold font-mono text-[10px] uppercase text-red-600 dark:text-red-400 block">Olumsuz Kanıt (Durdurur):</span>
-                      <p>Müşteriler mevcut çözümlerin yeterli olduğunu belirtip geçiş maliyetini kabul etmez.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 6. Validation Actions (Strictly 3) */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
-                    6. Doğrulama Eylemleri (Tam 3 Adım)
+                    {language === 'tr' ? '6. Doğrulama Eylemleri (Tam 3 Adım)' : '6. Validation Actions (3 Next Steps)'}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                     <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
                       <span className="font-black font-mono text-red-600 dark:text-red-400 text-sm">01</span>
-                      <p className="text-slate-800 dark:text-slate-200">5 hedef karar verici ile fiyatlandırma ve ödeme isteği görüşmesi yapın.</p>
+                      <p className="text-slate-800 dark:text-slate-200">{language === 'tr' ? '5 hedef karar verici ile fiyatlandırma ve ödeme isteği görüşmesi yapın.' : 'Conduct 5 customer pricing and willingness-to-pay discovery interviews.'}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
                       <span className="font-black font-mono text-red-600 dark:text-red-400 text-sm">02</span>
-                      <p className="text-slate-800 dark:text-slate-200">Geçiş sürtünmesini mevcut standart iş akışlarına karşı kıyaslayın.</p>
+                      <p className="text-slate-800 dark:text-slate-200">{language === 'tr' ? 'Geçiş sürtünmesini mevcut standart iş akışlarına karşı kıyaslayın.' : 'Benchmark migration friction against current manual workflows.'}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
                       <span className="font-black font-mono text-red-600 dark:text-red-400 text-sm">03</span>
-                      <p className="text-slate-800 dark:text-slate-200">Aktif günlük kullanım oranını ölçen 14 günlük küçük bir pilot çalıştırın.</p>
+                      <p className="text-slate-800 dark:text-slate-200">{language === 'tr' ? 'Aktif günlük kullanım oranını ölçen 14 günlük küçük bir pilot çalıştırın.' : 'Run a 14-day binding pilot to measure daily workflow engagement.'}</p>
                     </div>
                   </div>
                 </div>
@@ -1179,14 +1071,14 @@ export const DecisionDashboardView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Judge Agent — Hakem Sentezi & Nihai Karar
+                      {language === 'tr' ? 'Sentez & Nihai Karar Değerlendirmesi' : 'Synthesis & Final Recommendation'}
                     </h3>
                     <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
-                      {judge ? 'Tamamlandı' : 'Bekliyor'}
+                      {judge ? (language === 'tr' ? 'Tamamlandı' : 'Completed') : (language === 'tr' ? 'Bekliyor' : 'Pending')}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Nihai Tavsiye: {displayAiRec} • Güvenilirlik Skoru: {judge?.recommendationConfidence || 'HIGH'} • Çapraz Ajan Tahkimatı
+                    {language === 'tr' ? 'Nihai Tavsiye:' : 'Recommendation:'} {displayAiRec} • {language === 'tr' ? 'Güvenilirlik:' : 'Confidence:'} {judge?.recommendationConfidence || 'HIGH'}
                   </p>
                 </div>
               </div>
@@ -1201,7 +1093,7 @@ export const DecisionDashboardView: React.FC = () => {
                   className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-200 dark:border-slate-700 hover:text-red-600 dark:hover:text-red-400 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span>PDF İndir</span>
+                  <span>{language === 'tr' ? 'PDF İndir' : 'Download PDF'}</span>
                 </button>
                 <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
                   {expandedAgents.judge ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -1215,7 +1107,7 @@ export const DecisionDashboardView: React.FC = () => {
                 {/* 1. Final Decision & Rationale */}
                 <div className="p-5 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold">1. NİHAİ HAKEM KARARI</span>
+                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold">{language === 'tr' ? '1. NİHAİ KARAR DEĞERLENDİRMESİ' : '1. FINAL EVALUATION DECISION'}</span>
                     <span className="text-[10px] font-mono uppercase font-bold text-blue-600 dark:text-blue-400">
                       CONFIDENCE: {judge?.recommendationConfidence || 'HIGH'}
                     </span>
@@ -1224,99 +1116,16 @@ export const DecisionDashboardView: React.FC = () => {
                     {displayAiRec}
                   </div>
                   <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-                    Problem doğrulanmış ve talep mevcut, ancak $299+ fiyatlandırma ve birim ekonomi varsayım aşamasında. Kod geliştirmeye başlamadan önce fiyat doğrulaması yapılmalıdır.
+                    {judge?.executiveSummary || (language === 'tr' 
+                      ? 'Problem doğrulanmış ve pazar talebi mevcut, ancak birim ekonomi ve fiyatlandırma varsayım aşamasında. Kod geliştirmeye başlamadan önce fiyat doğrulaması yapılmalıdır.'
+                      : 'Validated customer demand with solid target economics, yet willingness-to-pay requires direct customer testing before scaling engineering.')}
                   </p>
-                </div>
-
-                {/* 3 & 4. Positive Signals & Key Risks */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2.5">
-                    <h4 className="text-[10px] font-mono uppercase text-emerald-600 dark:text-emerald-400 font-bold">
-                      3. Ana Pozitif Sinyaller
-                    </h4>
-                    <div className="space-y-2 text-[11px]">
-                      <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
-                        <strong className="text-emerald-700 dark:text-emerald-300 font-mono block">✓ Problem Kanıtlandı:</strong>
-                        <span className="text-slate-600 dark:text-slate-400">Operasyonel iş gücü israfı güvenilir kaynaklarla teyitli.</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
-                        <strong className="text-emerald-700 dark:text-emerald-300 font-mono block">✓ Mevcut Harcama:</strong>
-                        <span className="text-slate-600 dark:text-slate-400">Müşteriler bu kategorideki alternatiflere bütçe ayırıyor.</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2.5">
-                    <h4 className="text-[10px] font-mono uppercase text-red-600 dark:text-red-400 font-bold">
-                      4. Kritik Riskler (Kırmızı Takım)
-                    </h4>
-                    <div className="space-y-2 text-[11px]">
-                      <div className="p-2.5 rounded-xl bg-red-500/5 border border-red-500/15">
-                        <strong className="text-red-700 dark:text-red-300 font-mono block">⚠ Fiyat Hassasiyeti:</strong>
-                        <span className="text-slate-600 dark:text-slate-400">$299+ fiyat için bağlayıcı müşteri taahhüdü eksik.</span>
-                      </div>
-                      <div className="p-2.5 rounded-xl bg-red-500/5 border border-red-500/15">
-                        <strong className="text-red-700 dark:text-red-300 font-mono block">⚠ Yerleşik Oyuncu Hamlesi:</strong>
-                        <span className="text-slate-600 dark:text-slate-400">Mevcut pazar liderleri benzer modülü pakete dahil edebilir.</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 5. Four Agent Summary & Synthesis Flow */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-                  <h4 className="text-[10px] font-mono uppercase text-slate-400 font-bold">
-                    5. Ajan Kanıt Özeti & Karar Akışı
-                  </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                      <span className="text-[9px] font-mono text-blue-500 font-bold block">RESEARCHER</span>
-                      <span className="text-[11px] font-bold text-slate-900 dark:text-white">Evidence: HIGH</span>
-                      <span className="text-[10px] text-slate-400 block">Pazar & Problem Teyitli</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                      <span className="text-[9px] font-mono text-emerald-500 font-bold block">BUSINESS</span>
-                      <span className="text-[11px] font-bold text-slate-900 dark:text-white">Viability: MED</span>
-                      <span className="text-[10px] text-slate-400 block">%80+ Marj Potansiyeli</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                      <span className="text-[9px] font-mono text-red-500 font-bold block">RED TEAM</span>
-                      <span className="text-[11px] font-bold text-slate-900 dark:text-white">Risk: HIGH</span>
-                      <span className="text-[10px] text-slate-400 block">Fiyat & Satış Döngüsü</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                      <span className="text-[9px] font-mono text-amber-500 font-bold block">JUDGE</span>
-                      <span className="text-[11px] font-bold text-slate-900 dark:text-white">VALIDATE FIRST</span>
-                      <span className="text-[10px] text-slate-400 block">Önce 5 Mülakat</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 6. Decision-Changing Evidence */}
-                <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-                  <h4 className="text-[10px] font-mono uppercase text-slate-400 font-bold">
-                    6. Kararı Değiştirecek Kanıtlar
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
-                    <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
-                      <span className="font-bold text-emerald-600 font-mono block text-[10px]">MOVE TO BUILD:</span>
-                      <span>5 hedef müşteriden bağlayıcı niyet mektubu (LOI) alınması.</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-amber-500/5 border border-amber-500/15">
-                      <span className="font-bold text-amber-600 font-mono block text-[10px]">MOVE TO REDESIGN:</span>
-                      <span>Müşterilerin bağımsız platform yerine API eklentisi istemesi.</span>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-red-500/5 border border-red-500/15">
-                      <span className="font-bold text-red-600 font-mono block text-[10px]">DO NOT PURSUE:</span>
-                      <span>Mevcut ücretsiz araçların yeterli görülüp bütçenin reddedilmesi.</span>
-                    </div>
-                  </div>
                 </div>
 
                 {/* 9. Final Recommendation */}
                 <div className="p-4 rounded-xl bg-slate-900 text-white border border-slate-800 text-xs font-mono font-bold flex items-center justify-between">
-                  <span>9. KURUCUYA TAVSİYE: Ağır yazılım öncesi 5 müşteriyle fiyatı test edin.</span>
-                  <span className="text-emerald-400 uppercase">NEXT: 5 Müşteri Mülakatı + 1 LOI</span>
+                  <span>{language === 'tr' ? 'ÖNERİLEN YOL: Büyük yatırımlar öncesi 5 müşteriyle fiyatı test edin.' : 'RECOMMENDED PATH: Validate pricing with 5 customers before full build.'}</span>
+                  <span className="text-emerald-400 uppercase">{language === 'tr' ? 'SIRADAKİ: 5 Mülakat + 1 Pilot' : 'NEXT: 5 Interviews + 1 Pilot'}</span>
                 </div>
               </div>
             )}
@@ -1333,10 +1142,10 @@ export const DecisionDashboardView: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Globe className="w-4 h-4 text-red-500" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
-              Doğrulanabilir Kaynaklar ve Alıntılar ({sources.length})
+              {language === 'tr' ? `Doğrulanabilir Kaynaklar ve Alıntılar (${sources.length})` : `Verifiable Sources & Citations (${sources.length})`}
             </h2>
           </div>
-          <span className="text-xs text-slate-400 font-mono">Şeffaf Kanıt Dizini</span>
+          <span className="text-xs text-slate-400 font-mono">{language === 'tr' ? 'Şeffaf Kanıt Dizini' : 'Evidence Directory'}</span>
         </div>
 
         {sources.length > 0 ? (
@@ -1351,7 +1160,7 @@ export const DecisionDashboardView: React.FC = () => {
                     {s.title}
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    <span className="font-semibold">{s.publisher || 'Sektör Raporu'}</span>
+                    <span className="font-semibold">{s.publisher || (language === 'tr' ? 'Sektör Raporu' : 'Industry Report')}</span>
                     {s.date && <span> • {s.date}</span>}
                     {s.extractedFact && (
                       <span className="text-slate-600 dark:text-slate-300"> — {s.extractedFact}</span>
@@ -1366,7 +1175,7 @@ export const DecisionDashboardView: React.FC = () => {
                     rel="noreferrer"
                     className="shrink-0 inline-flex items-center gap-1 text-[11px] font-mono font-bold text-red-600 dark:text-red-400 hover:underline"
                   >
-                    <span>İncele</span>
+                    <span>{language === 'tr' ? 'İncele' : 'View'}</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
@@ -1388,18 +1197,20 @@ export const DecisionDashboardView: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Sparkles className="w-4 h-4 text-red-500" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
-              Kurucu Stratejik Kararı
+              {language === 'tr' ? 'Kurucu Stratejik Kararı' : 'Founder Strategic Decision'}
             </h2>
           </div>
           {decision && (
             <span className="text-xs font-mono font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-              Kayıtlı Karar: {decision.choice}
+              {language === 'tr' ? 'Kayıtlı Karar:' : 'Recorded Decision:'} {decision.choice}
             </span>
           )}
         </div>
 
         <p className="text-xs text-slate-600 dark:text-slate-400">
-          Sentezlenen istihbarat dosyasına dayanarak bir sonraki stratejik yol haritanızı belirleyin.
+          {language === 'tr' 
+            ? 'Detaylı analiz dosyasına dayanarak bir sonraki stratejik yol haritanızı belirleyin.' 
+            : 'Select your strategic commitment path based on the multi-dimensional evaluation results.'}
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
@@ -1423,7 +1234,7 @@ export const DecisionDashboardView: React.FC = () => {
             <textarea
               value={rationale}
               onChange={(e) => setRationale(e.target.value)}
-              placeholder="Kurucu gerekçesi veya kilometre taşı notu ekleyin (isteğe bağlı)..."
+              placeholder={language === 'tr' ? "Kurucu gerekçesi veya kilometre taşı notu ekleyin (isteğe bağlı)..." : "Add strategic rationale or milestone criteria (optional)..."}
               rows={2}
               className="w-full p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-red-500 font-sans"
             />
@@ -1433,7 +1244,7 @@ export const DecisionDashboardView: React.FC = () => {
               disabled={isRecordingDecision}
               className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white text-xs font-mono font-bold rounded-xl shadow-sm transition disabled:opacity-50 cursor-pointer"
             >
-              {isRecordingDecision ? t.common.loading : 'Stratejik Kararı Kaydet'}
+              {isRecordingDecision ? t.common.loading : (language === 'tr' ? 'Stratejik Kararı Kaydet' : 'Record Strategic Decision')}
             </button>
           </div>
         )}

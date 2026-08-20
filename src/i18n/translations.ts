@@ -91,6 +91,14 @@ export interface Translations {
   dashboard: {
     headerTitle: string;
     headerSubtitle: string;
+    dossierBadge: string;
+    cachedBadge: string;
+    cachedTooltip: string;
+    rerunBypass: string;
+    openPdfReport: string;
+    compositeScore: string;
+    finalRecommendation: string;
+    fourDimensions: string;
     readinessScore: string;
     aiRecommendation: string;
     dimensionsTitle: string;
@@ -102,20 +110,31 @@ export interface Translations {
     criticalRisks: string;
     criticalUnknowns: string;
     immediateNextActions: string;
+    dossiersSectionTitle: string;
+    dossiersSectionSubtitle: string;
+    expandAll: string;
+    collapseAll: string;
+    downloadPdf: string;
     intelligenceFiles: string;
     sourcesTitle: string;
+    transparentDirectory: string;
+    inspectCitation: string;
     evidenceDistribution: string;
     highConfidence: string;
     mediumConfidence: string;
     lowConfidence: string;
     governanceTitle: string;
     founderDecision: string;
+    recordedDecision: string;
+    strategicDecisionSubtitle: string;
     founderRationale: string;
+    rationalePlaceholder: string;
     overrideReason: string;
     overrideReasonPlaceholder: string;
     alignmentNotice: string;
     decisionSaved: string;
     saveDecisionBtn: string;
+    saveStrategicDecision: string;
     noSourcesAvailable: string;
     externalLink: string;
     downloadAllPdf: string;
@@ -271,31 +290,50 @@ export const translations: Record<Language, Translations> = {
     dashboard: {
       headerTitle: 'Executive Intelligence & Decision Cockpit',
       headerSubtitle: 'Synthesized intelligence from 4 specialized agents. Evaluated against empirical evidence.',
+      dossierBadge: 'Venture Intelligence Dossier',
+      cachedBadge: 'Cached & Verified',
+      cachedTooltip: 'This venture idea was evaluated previously and loaded from deterministic cache. Scores are 100% stable.',
+      rerunBypass: 'Re-analyze (Bypass Cache)',
+      openPdfReport: 'Open PDF Report',
+      compositeScore: 'Composite Venture Score',
+      finalRecommendation: 'Final AI Recommendation',
+      fourDimensions: '4 Core Readiness Dimensions',
       readinessScore: 'Venture Readiness Score',
       aiRecommendation: 'AI Recommendation',
       dimensionsTitle: 'Readiness Dimensions',
       problemUrgency: 'Problem Urgency',
-      marketViability: 'Market Viability',
-      defensibilityMoat: 'Defensibility / Moat',
-      executionRisk: 'Execution Risk',
+      marketViability: 'Business Model & Revenue',
+      defensibilityMoat: 'Defensibility & Moats',
+      executionRisk: 'Execution & Delivery',
       strongestSignals: 'Strongest Empirical Signals',
-      criticalRisks: 'Critical Risks & Failure Vectors',
+      criticalRisks: 'Critical Risk Factors',
       criticalUnknowns: 'Decision-Critical Unknowns',
-      immediateNextActions: 'Strictly 3 Empirical Next Actions',
+      immediateNextActions: '3 Priority Next Actions',
+      dossiersSectionTitle: 'Deep-Dive Analytical Dossiers',
+      dossiersSectionSubtitle: 'Click any dossier to expand complete technical findings and charts.',
+      expandAll: 'Expand All',
+      collapseAll: 'Collapse All',
+      downloadPdf: 'Download PDF',
       intelligenceFiles: 'Intelligence Dossiers & PDF Reports',
-      sourcesTitle: 'Verified Citations & Evidence Traceability',
+      sourcesTitle: 'Verified Citations & Sources',
+      transparentDirectory: 'Transparent Evidence Directory',
+      inspectCitation: 'Inspect',
       evidenceDistribution: 'Evidence Distribution',
       highConfidence: 'High Confidence',
       mediumConfidence: 'Medium Confidence',
       lowConfidence: 'Low Confidence',
       governanceTitle: 'Founder Governance & Decision Record',
       founderDecision: 'Founder Strategic Commitment',
+      recordedDecision: 'Recorded Decision',
+      strategicDecisionSubtitle: 'Select your strategic path based on the synthesized analysis.',
       founderRationale: 'Decision Rationale & Context',
+      rationalePlaceholder: 'Add founder rationale or milestone notes (optional)...',
       overrideReason: 'Override Justification (Required if diverging from AI)',
       overrideReasonPlaceholder: 'State empirical reason or privileged insight behind diverging from AI verdict...',
       alignmentNotice: 'Alignment with AI evaluation calculated automatically upon recording.',
       decisionSaved: 'Strategic decision successfully recorded to immutable log.',
       saveDecisionBtn: 'Record Founder Decision',
+      saveStrategicDecision: 'Record Strategic Decision',
       noSourcesAvailable: 'No external sources recorded for this venture.',
       externalLink: 'Open Citation',
       downloadAllPdf: 'Download Complete Intelligence Dossier',
@@ -360,8 +398,8 @@ export const translations: Record<Language, Translations> = {
   },
   tr: {
     common: {
-      appName: 'Girişim İstihbaratı',
-      founderCockpit: 'KURUCU KOKPİTİ',
+      appName: 'Girişim Analiz ve Değerlendirme',
+      founderCockpit: 'GİRİŞİM PANELİ',
       newVenture: 'Yeni Girişim',
       noVentureActive: 'Aktif Girişim Yok',
       loading: 'Yükleniyor...',
@@ -373,14 +411,14 @@ export const translations: Record<Language, Translations> = {
       close: 'Kapat',
       viewPdf: 'PDF İncele',
       downloadPdf: 'PDF İndir',
-      insufficientEvidence: 'Yetersiz güvenilir kanıt',
-      evidenceBacked: 'Kanıta Dayalı',
+      insufficientEvidence: 'Yetersiz veri',
+      evidenceBacked: 'Veriye Dayalı',
       verified: 'Doğrulandı',
       confidence: 'Güvenilirlik',
       sources: 'Kaynaklar',
       findings: 'Bulgular',
-      disagreements: 'Uyuşmazlıklar',
-      fact: 'OLGU',
+      disagreements: 'Farklı Görüşler',
+      fact: 'GERÇEK',
       inference: 'ÇIKARIM',
       assumption: 'VARSAYIM',
       completed: 'Tamamlandı',
@@ -388,50 +426,50 @@ export const translations: Record<Language, Translations> = {
       step: 'ADIM'
     },
     navigation: {
-      intelligenceFlow: 'İstihbarat Akışı',
-      ideaInput: 'Fikir & Giriş',
-      agentPipeline: 'Ajan Hattı',
-      decisionCockpit: 'Karar Kokpiti',
-      specializedDossiers: 'Uzman Dosyaları',
-      researchEvidence: 'Pazar Kanıtları',
-      businessEconomics: 'İş Ekonomisi',
-      redTeamRisks: 'Red Team Riskleri',
-      judgeSynthesis: 'Hakem Sentezi',
-      agentWorkspace: 'Ajan Telemetrisi',
+      intelligenceFlow: 'Analiz Aşamaları',
+      ideaInput: 'Fikir ve Giriş',
+      agentPipeline: 'Analiz Süreci',
+      decisionCockpit: 'Değerlendirme ve Karar Paneli',
+      specializedDossiers: 'Detaylı Raporlar',
+      researchEvidence: 'Pazar ve Rakip Analizi',
+      businessEconomics: 'İş Modeli ve Gelir Analizi',
+      redTeamRisks: 'Risk ve Güvenlik Analizi',
+      judgeSynthesis: 'Kapsamlı Değerlendirme Raporu',
+      agentWorkspace: 'Analiz Kayıtları ve Telemetri',
       allVentures: 'Tüm Girişimler',
-      noVenturesFound: 'Henüz değerlendirilmiş girişim yok.',
-      createNewPrompt: 'Başlamak için yeni bir girişim oluşturun.',
+      noVenturesFound: 'Henüz değerlendirilmiş girişim bulunmuyor.',
+      createNewPrompt: 'Başlamak için yeni bir girişim fikri ekleyin.',
       flowIdea: 'FİKİR',
-      flowIntelligence: 'İSTİHBARAT',
-      flowEvidence: 'KANIT',
+      flowIntelligence: 'ANALİZ',
+      flowEvidence: 'VERİLER',
       flowDecision: 'KARAR',
       flowAction: 'EYLEM'
     },
     agents: {
       researcher: {
-        name: 'Araştırmacı',
-        role: 'Pazar Kanıtı & Veri Tespiti',
-        description: 'Doğrulanmış kaynakları, ampirik pazar verilerini ve rakip kıyaslamalarını toplar.'
+        name: 'Pazar Araştırmacısı',
+        role: 'Pazar Verileri ve Rakip İncelemesi',
+        description: 'Güvenilir pazar verilerini, sektör araştırmalarını ve rakip çözümlerini derler.'
       },
       business: {
         name: 'İş Modeli Uzmanı',
-        role: 'Birim Ekonomisi & Gelir Modeli',
-        description: 'Karlılık marjlarını, iş modeli uygulanabilirliğini ve savunma hendeklerini inceler.'
+        role: 'Gelir Modeli ve Karlılık Analizi',
+        description: 'Kar marjlarını, birim maliyetleri ve ticari büyüme potansiyelini inceler.'
       },
       redTeam: {
-        name: 'Red Team',
-        role: 'Karşıt Stres Testi & Riskler',
-        description: 'Dogmaları sorgular, varsayımlara saldırır ve ölümcül iflas koşullarını ortaya çıkarır.'
+        name: 'Risk Analisti',
+        role: 'Risk Analizi ve Stres Testi',
+        description: 'Kritik riskleri, eksik varsayımları ve olası başarısızlık senaryolarını test eder.'
       },
       judge: {
-        name: 'Hakem (Judge)',
-        role: 'Çapraz Ajan Hakemliği',
-        description: 'Tüm kanıtları sentezler, ajan çelişkilerini çözer ve hazırlık skorunu hesaplar.'
+        name: 'Değerlendirme Uzmanı',
+        role: 'Kapsamlı Sonuç Değerlendirmesi',
+        description: 'Tüm analiz verilerini bir araya getirerek genel hazırlık puanını ve tavsiyeyi oluşturur.'
       },
       decisionMaker: {
         name: 'Karar Verici',
-        role: 'Girişim Kararı & Yönetişim',
-        description: 'Kurucu taahhüdünü yönlendirir, stratejik uyumu kaydeder ve sonraki adımları belirler.'
+        role: 'Stratejik Karar ve Yol Haritası',
+        description: 'Kurucunun stratejik tercihini kaydeder ve sonraki adımları belirler.'
       }
     },
     recommendations: {
@@ -447,93 +485,113 @@ export const translations: Record<Language, Translations> = {
       low: 'DÜŞÜK'
     },
     dashboard: {
-      headerTitle: 'Yönetici İstihbaratı & Karar Kokpiti',
-      headerSubtitle: '4 uzman ajanın sentezlenmiş istihbaratı. Ampirik kanıtlarla değerlendirilmiştir.',
-      readinessScore: 'Girişim Hazırlık Skoru',
-      aiRecommendation: 'Yapay Zeka Tavsiyesi',
+      headerTitle: 'Girişim Değerlendirme ve Karar Paneli',
+      headerSubtitle: '4 uzman modül tarafından analiz edilen pazar, gelir ve risk verilerinin özeti.',
+      dossierBadge: 'Girişim Değerlendirme Dosyası',
+      cachedBadge: 'Kayıtlı Analiz (Hızlı Yükleme)',
+      cachedTooltip: 'Bu girişim fikri daha önce analiz edildiği için kayıtlı verilerden anında yüklendi. Puan ve sonuçlar sabittir.',
+      rerunBypass: 'Sıfırdan Analiz Et',
+      openPdfReport: 'PDF Raporunu Aç',
+      compositeScore: 'Bileşik Girişim Puanı',
+      finalRecommendation: 'Nihai Karar Tavsiyesi',
+      fourDimensions: '4 Temel Hazırlık Boyutu',
+      readinessScore: 'Girişim Hazırlık Puanı',
+      aiRecommendation: 'Sistem Tavsiyesi',
       dimensionsTitle: 'Hazırlık Boyutları',
       problemUrgency: 'Problem Aciliyeti',
-      marketViability: 'Pazar Uygulanabilirliği',
-      defensibilityMoat: 'Savunulabilirlik / Hendek',
-      executionRisk: 'Uygulama Riski',
-      strongestSignals: 'En Güçlü Ampirik Sinyaller',
-      criticalRisks: 'Kritik Riskler & İflas Vektörleri',
-      criticalUnknowns: 'Karar Açısından Kritik Bilinmeyenler',
-      immediateNextActions: 'Öncelikli 3 Ampirik Sonraki Eylem',
-      intelligenceFiles: 'İstihbarat Dosyaları & PDF Raporları',
-      sourcesTitle: 'Doğrulanmış Kaynaklar ve Kanıt İzlenebilirliği',
-      evidenceDistribution: 'Kanıt Dağılımı',
+      marketViability: 'İş Modeli ve Gelir',
+      defensibilityMoat: 'Savunma Hendekleri ve Rekabet',
+      executionRisk: 'İcraat ve Süreç',
+      strongestSignals: 'Ana Güçlü Sinyaller',
+      criticalRisks: 'Kritik Risk Faktörleri',
+      criticalUnknowns: 'Açıklığa Kavuşturulması Gereken Konular',
+      immediateNextActions: '3 Öncelikli Eylem Adımı',
+      dossiersSectionTitle: 'Detaylı Uzman Analiz Raporları',
+      dossiersSectionSubtitle: 'İstediğiniz alanın üzerine tıklayarak tüm detayları ve grafikleri genişletin.',
+      expandAll: 'Tümünü Genişlet',
+      collapseAll: 'Tümünü Daralt',
+      downloadPdf: 'PDF İndir',
+      intelligenceFiles: 'Detaylı Raporlar ve PDF Dokümanları',
+      sourcesTitle: 'Doğrulanabilir Kaynaklar ve Alıntılar',
+      transparentDirectory: 'Şeffaf Kaynak Dizini',
+      inspectCitation: 'İncele',
+      evidenceDistribution: 'Veri Dağılımı',
       highConfidence: 'Yüksek Güvenilirlik',
       mediumConfidence: 'Orta Güvenilirlik',
       lowConfidence: 'Düşük Güvenilirlik',
-      governanceTitle: 'Kurucu Yönetişimi & Karar Kaydı',
-      founderDecision: 'Kurucu Stratejik Taahhüdü',
-      founderRationale: 'Karar Gerekçesi & Bağlam',
-      overrideReason: 'Farklı Karar Gerekçesi (Yapay Zeka tavsiyesinden ayrışıyorsa zorunlu)',
-      overrideReasonPlaceholder: 'Yapay Zeka kararından ayrışmanızın arkasındaki ampirik sebebi veya özel bilgiyi belirtin...',
-      alignmentNotice: 'Yapay Zeka değerlendirmesiyle uyum, kayıt sırasında otomatik hesaplanır.',
-      decisionSaved: 'Stratejik karar değişmez log kayıtlarına başarıyla işlendi.',
-      saveDecisionBtn: 'Kurucu Kararını Kaydet',
-      noSourcesAvailable: 'Bu girişim için harici kaynak kaydedilmedi.',
-      externalLink: 'Kaynağı Aç',
-      downloadAllPdf: 'Tüm İstihbarat Dosyasını İndir',
-      tradeoffsTitle: 'Çapraz Ajan Ödünleşim Matrisi'
+      governanceTitle: 'Kurucu Kararı ve Notlar',
+      founderDecision: 'Kurucu Stratejik Kararı',
+      recordedDecision: 'Kayıtlı Karar',
+      strategicDecisionSubtitle: 'Değerlendirme raporuna dayanarak bir sonraki stratejik yol haritanızı belirleyin.',
+      founderRationale: 'Karar Gerekçesi ve Notlar',
+      rationalePlaceholder: 'Kurucu gerekçesi veya kilometre taşı notu ekleyin (isteğe bağlı)...',
+      overrideReason: 'Farklı Karar Gerekçesi (Sistem tavsiyesinden farklı bir yol seçiliyorsa)',
+      overrideReasonPlaceholder: 'Sistem tavsiyesinden farklı düşünmenizin nedenini veya ek bilgilerinizi yazın...',
+      alignmentNotice: 'Sistem değerlendirmesiyle uyum otomatik olarak kaydedilir.',
+      decisionSaved: 'Stratejik karar başarıyla kaydedildi.',
+      saveDecisionBtn: 'Kararı Kaydet',
+      saveStrategicDecision: 'Stratejik Kararı Kaydet',
+      noSourcesAvailable: 'Bu girişim için henüz harici kaynak kaydedilmedi.',
+      externalLink: 'Kaynağı İncele',
+      downloadAllPdf: 'Tüm Raporu PDF Olarak İndir',
+      tradeoffsTitle: 'Karar ve Dengeler Matrisi'
     },
     input: {
-      title: 'Girişim Fikri Girişi',
-      titleHighlight: 'Karşıt İstihbarat',
-      subtitle: 'Girişim fikrinizi girin. 4 uzman ajanımız kanıtları araştıracak, varsayımları sınayacak, ekonomiyi test edecek ve tarafsız bir karar üretecektir.',
+      title: 'Girişim Fikri Analizi',
+      titleHighlight: 'Kapsamlı Değerlendirme',
+      subtitle: 'Girişim fikrinizi girin. 4 uzman analiz modülümüz pazar verilerini araştırır, iş modelini inceler, riskleri test eder ve objektif bir sonuç üretir.',
       ideaLabel: 'Girişim Fikri ve Değer Önerisi',
-      ideaPlaceholder: 'Çözdüğünüz problemi, önerilen çözümü ve neden önemli olduğunu açıklayın...',
-      targetCustomerLabel: 'Hedef Müşteri Profili (ICP)',
-      targetCustomerPlaceholder: 'örn. Kurumsal DevOps Liderleri, B2B SaaS Kurucuları, Onkoloji klinikleri...',
+      ideaPlaceholder: 'Çözdüğünüz problemi, önerdiğiniz çözümü ve hedef kitlenizi açıklayın...',
+      targetCustomerLabel: 'Hedef Müşteri Profili',
+      targetCustomerPlaceholder: 'örn. Kurumsal Bilişim Yöneticileri, B2B SaaS Kurucuları, Sağlık Kuruluşları...',
       geographyLabel: 'İlk Hedef Pazar / Coğrafya',
-      geographyPlaceholder: 'örn. Türkiye, Avrupa, ABD Kurumsal, Küresel Uzaktan...',
-      contextLabel: 'Bilinen Bağlam veya Kurucu Avantajı (Opsiyonel)',
-      contextPlaceholder: 'Tescilli teknoloji, sektör uzmanlığı veya erken pilot veriler...',
-      startIntakeBtn: 'Açıklayıcı Soruları Oluştur',
-      quickPromptsTitle: 'Örnek Girişim Modelleri',
-      clarifyingTitle: 'Açıklayıcı Sorular',
-      clarifyingSubtitle: 'Ajanların araştırma hassasiyetini artırmak için soruları yanıtlayın.',
+      geographyPlaceholder: 'örn. Türkiye, Avrupa, Küresel...',
+      contextLabel: 'Varsa Ek Bilgi veya Avantajınız (İsteğe Bağlı)',
+      contextPlaceholder: 'Özel teknoloji, sektör tecrübesi, ilk pilot görüşmeleri vb...',
+      startIntakeBtn: 'Analizi Başlat',
+      quickPromptsTitle: 'Örnek Girişim Fikirleri',
+      clarifyingTitle: 'Netleştirici Sorular',
+      clarifyingSubtitle: 'Analizin doğruluğunu artırmak için lütfen soruları yanıtlayın.',
       yourAnswer: 'Cevabınız',
-      answerPlaceholder: 'Mümkünse spesifik bağlam veya rakamlar belirtin...',
+      answerPlaceholder: 'Bildiğiniz rakamları veya detayları yazın...',
       submitAnswer: 'Cevabı Kaydet',
       skipQuestion: 'Soruyu Atla',
-      finalizePipelineBtn: '4 Ajanlı Analiz Hattını Başlat'
+      finalizePipelineBtn: 'Analizi Başlat'
     },
     pipeline: {
-      title: 'Çok Ajanlı Analiz Hattı Çalışıyor',
-      subtitle: 'Gerçek zamanlı koordineli istihbarat süreci.',
-      runningPipeline: 'Ajanlar aktif olarak araştırıyor, ekonomiyi modelliyor ve stres testi uyguluyor...',
-      pipelineComplete: '4 uzman ajan tarafından istihbarat sentezlendi.',
-      viewDecisionCockpit: 'Karar Kokpitine Gir',
-      inspectTelemetry: 'Ajan Telemetrisini İncele',
+      title: 'Girişim Analizi Yürütülüyor',
+      subtitle: 'Uzman modüller fikrinizi adım adım inceliyor.',
+      runningPipeline: 'Modüller pazar verilerini topluyor, gelir modelini inceliyor ve riskleri değerlendiriyor...',
+      pipelineComplete: 'Tüm modüllerin analiz süreci tamamlandı.',
+      viewDecisionCockpit: 'Sonuç Paneline Git',
+      inspectTelemetry: 'Analiz Detaylarını İncele',
       agentActivityWaiting: 'Sıra bekleniyor',
-      agentActivityRunning: 'Analiz yürütülüyor ve kanıtlar toplanıyor...',
-      agentActivityDone: 'İstihbarat üretildi ve doğrulandı'
+      agentActivityRunning: 'Analiz yürütülüyor ve veriler toplanıyor...',
+      agentActivityDone: 'Analiz tamamlandı ve doğrulandı'
     },
     reports: {
-      researchTitle: 'Pazar Araştırması İstihbarat Dosyası',
-      researchSubtitle: 'Ampirik veri tespiti, doğrulanmış kaynaklar ve rekabet haritası.',
-      businessTitle: 'İş Modeli ve Birim Ekonomisi Dosyası',
-      businessSubtitle: 'Birim ekonomisi denetimi, fiyatlandırma mekanizmaları ve hendek sürdürülebilirliği.',
-      redTeamTitle: 'Red Team Karşıt Güvenlik Denetimi',
-      redTeamSubtitle: 'Ölümcül iflas koşulları, pre-mortem tetikleyicileri ve varsayım saldırıları.',
-      judgeTitle: 'Hakem Sentezi ve Girişim Kararı',
-      judgeSubtitle: 'Çapraz ajan hakemliği, tez doğrulaması ve kesin hazırlık puanlaması.',
-      executiveSummary: 'Yönetici Özeti',
-      keyFindings: 'Temel Bulgular ve Ampirik Veriler',
-      competitorLandscape: 'Rakip Haritası ve Savunma Hendekleri',
-      pricingUnitEconomics: 'Fiyatlandırma ve Birim Ekonomisi',
-      businessAssumptions: 'Kritik İş Varsayımları',
-      fatalFlaws: 'Kritik Riskler ve İflas Senaryoları',
-      killVectors: 'İflas Vektörleri ve Başarısızlık Mekanizmaları',
-      challengedClaims: 'Sorgulanan Kurucu İddiaları',
-      killScenarios: 'Pre-Mortem İflas Tetikleyicileri',
-      arbitrationOverview: 'Hakem Tavsiye Gerekçesi',
-      coreThesis: 'Temel Girişim Tezi Doğrulaması',
-      crossAgentTensions: 'Hakem Kararına Bağlanan Çelişkiler',
-      traceabilityMatrix: 'Kanıt İzlenebilirlik Matrisi'
+      researchTitle: 'Pazar ve Rakip Analizi Raporu',
+      researchSubtitle: 'Pazar büyüklüğü, mevcut çözümler ve doğrulanmış kaynaklar.',
+      businessTitle: 'İş Modeli ve Gelir Analizi Raporu',
+      businessSubtitle: 'Gelir modeli, marj beklentileri ve fiyatlandırma analizi.',
+      redTeamTitle: 'Risk ve Stres Testi Raporu',
+      redTeamSubtitle: 'Kritik riskler, test edilmemiş varsayımlar ve önlemler.',
+      judgeTitle: 'Sonuç ve Kapsamlı Değerlendirme Raporu',
+      judgeSubtitle: 'Genel değerlendirme, hazırlık puanı ve önerilen eylem adımları.',
+      executiveSummary: 'Özet Değerlendirme',
+      keyFindings: 'Temel Bulgular ve Veriler',
+      competitorLandscape: 'Rakip Analizi ve Alternatifler',
+      pricingUnitEconomics: 'Fiyatlandırma ve Gelir Yapısı',
+      businessAssumptions: 'Temel İş Varsayımları',
+      fatalFlaws: 'Kritik Riskler ve Zorluklar',
+      killVectors: 'Olası Başarısızlık Nedenleri',
+      challengedClaims: 'Doğrulanması Gereken İddialar',
+      killScenarios: 'Olası Risk Senaryoları',
+      arbitrationOverview: 'Değerlendirme Gerekçesi',
+      coreThesis: 'Temel Girişim Hipotezi',
+      crossAgentTensions: 'Uzman Görüşleri ve Değerlendirme Notları',
+      traceabilityMatrix: 'Veri ve Kaynak Listesi'
     }
   }
 };
+
