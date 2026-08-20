@@ -897,7 +897,8 @@ export function generateLocalEvaluatedVenture(venture: Venture): { venture: Vent
     undefined,
     researchReport,
     businessReport,
-    redTeamReport
+    redTeamReport,
+    venture
   );
 
   const evaluatedVenture: Venture = {

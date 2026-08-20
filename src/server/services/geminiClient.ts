@@ -80,10 +80,15 @@ export async function executeGeminiWithFallback(options: GeminiGenerateOptions):
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
+        const mergedConfig = {
+          temperature: 0.0,
+          ...options.config
+        };
+
         const response = await ai.models.generateContent({
           model,
           contents: options.contents,
-          config: options.config
+          config: mergedConfig
         });
 
         if (response && response.text) {

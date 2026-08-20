@@ -2,6 +2,11 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Venture, CriticalQuestion, Decision, NextAction } from '../types/domain';
 import { VentureAnalysisState } from '../types/state';
 import { createLocalVenture, generateLocalEvaluatedVenture } from '../utils/clientFallbackEngine';
+import { 
+  analysisCacheService, 
+  CachedAnalysisEntry, 
+  IdeaInputFingerprint 
+} from '../services/analysisCache';
 
 export type ActiveView = 
   | 'input'
@@ -23,6 +28,9 @@ interface VentureContextType {
   isAnalyzing: boolean;
   isRecordingDecision: boolean;
   error: string | null;
+  isLoadedFromCache: boolean;
+  activeCacheEntry: CachedAnalysisEntry | null;
+  cachedAnalyses: CachedAnalysisEntry[];
   setActiveView: (view: ActiveView) => void;
   selectVenture: (id: string) => Promise<void>;
   createVenture: (data: {
@@ -41,7 +49,10 @@ interface VentureContextType {
   answerQuestion: (questionId: string, answer: string) => Promise<void>;
   skipQuestion: (questionId: string) => Promise<void>;
   finalizeIntake: () => Promise<void>;
-  runAnalysis: (ventureId: string) => Promise<void>;
+  runAnalysis: (ventureId: string, forceFresh?: boolean) => Promise<void>;
+  reAnalyzeVenture: (ventureId: string, forceFresh?: boolean) => Promise<void>;
+  clearCache: () => Promise<void>;
+  loadFromCacheEntry: (entry: CachedAnalysisEntry) => Promise<void>;
   recordDecision: (
     ventureId: string,
     data: {
@@ -210,6 +221,22 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isRecordingDecision, setIsRecordingDecision] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadedFromCache, setIsLoadedFromCache] = useState<boolean>(false);
+  const [activeCacheEntry, setActiveCacheEntry] = useState<CachedAnalysisEntry | null>(null);
+  const [cachedAnalyses, setCachedAnalyses] = useState<CachedAnalysisEntry[]>([]);
+
+  const refreshCachedList = async () => {
+    try {
+      const all = await analysisCacheService.getAllCachedAnalyses();
+      setCachedAnalyses(all);
+    } catch {
+      // Ignore cache list read failures
+    }
+  };
+
+  useEffect(() => {
+    refreshCachedList();
+  }, []);
 
   const fetchVentures = async () => {
     try {
@@ -321,6 +348,45 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       setIsIntaking(true);
       setError(null);
+
+      // Check if an identical idea was already analyzed and stored in cache
+      const cached = await analysisCacheService.getCachedAnalysis({
+        idea: data.idea,
+        targetCustomer: data.targetCustomer,
+        geography: data.geography,
+        context: data.context
+      });
+
+      if (cached && cached.venture && cached.venture.score) {
+        console.log(`[VentureContext] ⚡ Instant Cache Hit in Intake for "${data.idea.slice(0, 40)}...". Restoring deterministic score: ${cached.venture.score.totalScore}/100.`);
+        
+        const restoredVenture: Venture = {
+          ...cached.venture,
+          id: `v_cached_${Date.now()}`,
+          status: 'evaluated',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+
+        setVentures(prev => [restoredVenture, ...prev]);
+        setActiveVenture(restoredVenture);
+        
+        if (cached.analysisState) {
+          setAnalysisState({
+            ...cached.analysisState,
+            venture: restoredVenture,
+            scores: cached.venture.score,
+            analysisStatus: 'completed',
+            lifecycleStatus: 'evaluated'
+          });
+        }
+
+        setIsLoadedFromCache(true);
+        setActiveCacheEntry(cached);
+        await refreshCachedList();
+        setActiveView('dashboard');
+        return restoredVenture;
+      }
       
       try {
         const res = await apiFetch('/api/ventures/intake', {
@@ -337,6 +403,8 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setVentures(prev => [newVenture, ...prev]);
           setActiveVenture(newVenture);
           setAnalysisState(state);
+          setIsLoadedFromCache(false);
+          setActiveCacheEntry(null);
           setActiveView('input');
           return newVenture;
         }
@@ -349,6 +417,8 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setVentures(prev => [localResult.venture, ...prev]);
       setActiveVenture(localResult.venture);
       setAnalysisState(localResult.analysisState);
+      setIsLoadedFromCache(false);
+      setActiveCacheEntry(null);
       setActiveView('input');
       return localResult.venture;
     } catch {
@@ -356,6 +426,8 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setVentures(prev => [localResult.venture, ...prev]);
       setActiveVenture(localResult.venture);
       setAnalysisState(localResult.analysisState);
+      setIsLoadedFromCache(false);
+      setActiveCacheEntry(null);
       setActiveView('input');
       return localResult.venture;
     } finally {
@@ -489,39 +561,109 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const runAnalysis = async (ventureId: string) => {
+  const runAnalysis = async (ventureId: string, forceFresh: boolean = false) => {
     try {
       setIsAnalyzing(true);
       setActiveView('analysis');
       setError(null);
 
+      const targetVenture = activeVenture?.id === ventureId ? activeVenture : ventures.find(v => v.id === ventureId);
+      
+      const fingerprint: IdeaInputFingerprint = {
+        title: targetVenture?.title,
+        idea: targetVenture?.rawIdea || targetVenture?.description,
+        description: targetVenture?.description,
+        problem: targetVenture?.problem,
+        solution: targetVenture?.solution,
+        targetCustomer: targetVenture?.targetCustomer || targetVenture?.targetAudience,
+        geography: targetVenture?.marketGeography,
+        context: targetVenture?.businessModel || targetVenture?.monetizationIdea,
+        answeredQuestions: targetVenture?.questions?.filter(q => q.status === 'ANSWERED' || !!q.answer)
+      };
+
+      // 1. Check client-side IndexedDB & memory cache if not forced fresh
+      if (!forceFresh) {
+        const cached = await analysisCacheService.getCachedAnalysis(fingerprint);
+        if (cached && cached.venture && cached.venture.score) {
+          console.log(`[VentureContext] ⚡ Instant Cache Hit for "${targetVenture?.title || ventureId}". Score: ${cached.venture.score.totalScore}/100.`);
+          
+          await new Promise(r => setTimeout(r, 600));
+
+          const mergedVenture: Venture = {
+            ...cached.venture,
+            id: ventureId,
+            title: targetVenture?.title || cached.venture.title,
+            status: 'evaluated'
+          };
+
+          setActiveVenture(mergedVenture);
+          setVentures(prev => prev.map(v => v.id === ventureId ? mergedVenture : v));
+
+          if (cached.analysisState) {
+            setAnalysisState({
+              ...cached.analysisState,
+              venture: mergedVenture,
+              scores: cached.venture.score || null,
+              analysisStatus: 'completed',
+              lifecycleStatus: 'evaluated'
+            });
+          }
+
+          setIsLoadedFromCache(true);
+          setActiveCacheEntry(cached);
+          await refreshCachedList();
+          setActiveView('dashboard');
+          return;
+        }
+      }
+
+      // 2. Cache miss or forced rerun: Execute analysis pipeline
+      setIsLoadedFromCache(false);
+      setActiveCacheEntry(null);
+
       // Brief animation delay so user sees pipeline in progress
       await new Promise(r => setTimeout(r, 1000));
+
+      let evaluatedVenture: Venture | null = null;
+      let evaluatedState: VentureAnalysisState | null = null;
 
       try {
         const res = await apiFetch(`/api/ventures/${ventureId}/analyze`, {
           method: 'POST'
         });
         if (res.ok) {
-          const evaluatedVenture: Venture = await res.json();
-          setActiveVenture(evaluatedVenture);
-          setVentures(prev => prev.map(v => v.id === ventureId ? evaluatedVenture : v));
-          await fetchAnalysisState(ventureId);
-          setActiveView('dashboard');
-          return;
+          evaluatedVenture = await res.json();
+          if (evaluatedVenture) {
+            setActiveVenture(evaluatedVenture);
+            setVentures(prev => prev.map(v => v.id === ventureId ? evaluatedVenture! : v));
+            await fetchAnalysisState(ventureId);
+          }
         }
       } catch {
         // Handled in apiFetch with granular log
       }
 
-      // Local synthesis fallback
-      const targetVenture = activeVenture?.id === ventureId ? activeVenture : ventures.find(v => v.id === ventureId);
-      if (targetVenture) {
+      // Local synthesis fallback if server was unavailable
+      if (!evaluatedVenture && targetVenture) {
         const localEvaluated = generateLocalEvaluatedVenture(targetVenture);
+        evaluatedVenture = localEvaluated.venture;
+        evaluatedState = localEvaluated.analysisState;
         setActiveVenture(localEvaluated.venture);
         setAnalysisState(localEvaluated.analysisState);
         setVentures(prev => prev.map(v => v.id === ventureId ? localEvaluated.venture : v));
       }
+
+      // 3. Save evaluated venture and score to IndexedDB cache
+      if (evaluatedVenture && evaluatedVenture.score) {
+        const saved = await analysisCacheService.saveAnalysis(
+          fingerprint,
+          evaluatedVenture,
+          analysisState || evaluatedState
+        );
+        setActiveCacheEntry(saved);
+        await refreshCachedList();
+      }
+
       setActiveView('dashboard');
     } catch (err: any) {
       console.warn('[VentureContext] runAnalysis notice:', err?.message || err);
@@ -529,11 +671,56 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const localEvaluated = generateLocalEvaluatedVenture(activeVenture);
         setActiveVenture(localEvaluated.venture);
         setAnalysisState(localEvaluated.analysisState);
+        if (localEvaluated.venture.score) {
+          const saved = await analysisCacheService.saveAnalysis(
+            { title: activeVenture.title, idea: activeVenture.rawIdea || activeVenture.description },
+            localEvaluated.venture,
+            localEvaluated.analysisState
+          );
+          setActiveCacheEntry(saved);
+          await refreshCachedList();
+        }
       }
       setActiveView('dashboard');
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const reAnalyzeVenture = async (ventureId: string, forceFresh: boolean = true) => {
+    await runAnalysis(ventureId, forceFresh);
+  };
+
+  const clearCache = async () => {
+    await analysisCacheService.clearCache();
+    setActiveCacheEntry(null);
+    setIsLoadedFromCache(false);
+    await refreshCachedList();
+  };
+
+  const loadFromCacheEntry = async (entry: CachedAnalysisEntry) => {
+    if (!entry.venture) return;
+    const restoredVenture: Venture = {
+      ...entry.venture,
+      id: `v_cached_${Date.now()}_${entry.ideaHash}`,
+      status: 'evaluated',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    setVentures(prev => [restoredVenture, ...prev]);
+    setActiveVenture(restoredVenture);
+    if (entry.analysisState) {
+      setAnalysisState({
+        ...entry.analysisState,
+        venture: restoredVenture,
+        scores: entry.venture.score || null,
+        analysisStatus: 'completed',
+        lifecycleStatus: 'evaluated'
+      });
+    }
+    setIsLoadedFromCache(true);
+    setActiveCacheEntry(entry);
+    setActiveView('dashboard');
   };
 
   const recordDecision = async (
@@ -653,6 +840,9 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isAnalyzing,
         isRecordingDecision,
         error,
+        isLoadedFromCache,
+        activeCacheEntry,
+        cachedAnalyses,
         setActiveView,
         selectVenture,
         createVenture,
@@ -661,6 +851,9 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         skipQuestion,
         finalizeIntake,
         runAnalysis,
+        reAnalyzeVenture,
+        clearCache,
+        loadFromCacheEntry,
         recordDecision,
         submitDecision,
         toggleAction,

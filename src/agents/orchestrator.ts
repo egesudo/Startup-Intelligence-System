@@ -41,7 +41,38 @@ import { chainOfThoughtWrapper } from '../server/verification/chainOfThoughtWrap
 
 export type OrchestrationEventCallback = (state: VentureAnalysisState) => void;
 
+interface CachedOrchestratorResult {
+  researchReport: any;
+  businessReport: any;
+  redTeamReport: any;
+  judgeReport: any;
+  score: any;
+  nextActions: any[];
+  collaborationRecords: any[];
+  agentRunRecords: any[];
+  agentChainStatus: any;
+  evidenceVerificationReport: any;
+}
+
 export class MultiAgentOrchestrator {
+  private static serverMemoCache: Map<string, CachedOrchestratorResult> = new Map();
+
+  private static computeVentureSignature(venture: any): string {
+    const normTitle = (venture?.title || '').toLowerCase().trim();
+    const normIdea = (venture?.rawIdea || venture?.description || `${venture?.problem || ''} ${venture?.solution || ''}`).toLowerCase().trim();
+    const normCustomer = (venture?.targetCustomer || venture?.targetAudience || '').toLowerCase().trim();
+    const normGeo = (venture?.marketGeography || '').toLowerCase().trim();
+    const normContext = (venture?.businessModel || venture?.monetizationIdea || '').toLowerCase().trim();
+
+    const answers = (venture?.questions || [])
+      .filter((q: any) => (q.status === 'ANSWERED' || q.answer) && q.answer)
+      .map((q: any) => `${q.id}:${q.answer}`)
+      .sort()
+      .join(';');
+
+    return `title=${normTitle}|idea=${normIdea}|cust=${normCustomer}|geo=${normGeo}|ctx=${normContext}|ans=${answers}`;
+  }
+
   constructor(
     private researchAgent: IResearchAgent = new ResearchAgent(),
     private businessAgent: IBusinessAgent = new BusinessAgent(),
@@ -186,6 +217,51 @@ export class MultiAgentOrchestrator {
     const emit = () => {
       if (onProgress) onProgress({ ...state });
     };
+
+    // Check if an identical idea has already been evaluated in server cache
+    const signature = MultiAgentOrchestrator.computeVentureSignature(venture);
+    const cachedResult = MultiAgentOrchestrator.serverMemoCache.get(signature);
+
+    if (cachedResult) {
+      console.log(`[MultiAgentOrchestrator] 🎯 Server Cache HIT for venture "${venture.title}" (Signature: ${signature}). Reusing deterministic reports and score (${cachedResult.score?.totalScore}/100).`);
+
+      state.researchReport = cachedResult.researchReport;
+      state.businessReport = cachedResult.businessReport;
+      state.redTeamReport = cachedResult.redTeamReport;
+      state.judgeReport = cachedResult.judgeReport;
+      state.scores = cachedResult.score;
+      state.nextActions = cachedResult.nextActions;
+      state.collaborationRecords = cachedResult.collaborationRecords;
+      state.agentWorkflow = {
+        research: { status: 'completed', completedAt: new Date().toISOString() },
+        business: { status: 'completed', completedAt: new Date().toISOString() },
+        redTeam: { status: 'completed', completedAt: new Date().toISOString() },
+        judge: { status: 'completed', completedAt: new Date().toISOString() }
+      };
+      state.analysisStatus = 'completed';
+      state.lifecycleStatus = 'evaluated';
+
+      await this.repo.update(ventureId, {
+        status: 'evaluated',
+        researchReport: cachedResult.researchReport,
+        businessReport: cachedResult.businessReport,
+        redTeamReport: cachedResult.redTeamReport,
+        judgeReport: cachedResult.judgeReport,
+        nextActions: cachedResult.nextActions,
+        score: cachedResult.score,
+        collaborationRecords: cachedResult.collaborationRecords,
+        agentRunRecords: cachedResult.agentRunRecords,
+        agentChainStatus: cachedResult.agentChainStatus,
+        evidenceVerificationReport: cachedResult.evidenceVerificationReport
+      });
+
+      const updated = await this.repo.findById(ventureId);
+      if (updated) {
+        state.venture = updated;
+      }
+      emit();
+      return state;
+    }
 
     // Tracking run records throughout this pipeline run
     const collectedRunRecords: AgentRunRecord[] = [];
@@ -594,7 +670,8 @@ export class MultiAgentOrchestrator {
           judgeOutput.rawScoreInput,
           state.researchReport,
           state.businessReport,
-          state.redTeamReport
+          state.redTeamReport,
+          state.venture
         );
         const savedScore = await this.repo.saveVentureScore(ventureId, computedScore);
 
@@ -649,6 +726,20 @@ export class MultiAgentOrchestrator {
         if (updatedVenture) {
           state.venture = updatedVenture;
         }
+
+        // Cache the successful evaluated result by signature for reproducible instant runs
+        MultiAgentOrchestrator.serverMemoCache.set(signature, {
+          researchReport: savedResearchReport,
+          businessReport: savedBusinessReport,
+          redTeamReport: savedRedTeamReport,
+          judgeReport: savedJudgeReport,
+          score: savedScore,
+          nextActions: savedActions,
+          collaborationRecords: state.collaborationRecords,
+          agentRunRecords: collectedRunRecords,
+          agentChainStatus: judgeVerification.chainStatus,
+          evidenceVerificationReport: judgeVerification.verificationReport
+        });
 
         emit();
       } catch (judgeErr: any) {
