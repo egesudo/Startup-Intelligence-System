@@ -3,6 +3,7 @@ import { useVenture } from '../context/VentureContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { AgentIdentity } from '../components/visual/AgentIdentity';
+import { ScoreGauge } from '../components/visual/ScoreGauge';
 import { PdfViewerModal } from '../components/pdf/PdfViewerModal';
 import { downloadPdfReport } from '../utils/pdfDownloader';
 import { 
@@ -40,7 +41,7 @@ export const JudgeReportView: React.FC = () => {
     if (!activeVenture) return;
     try {
       setIsDownloading(true);
-      await downloadPdfReport(activeVenture.id, 'judge', activeVenture.title);
+      await downloadPdfReport(activeVenture.id, 'judge', activeVenture.title, activeVenture);
     } catch (err: any) {
       alert(`Download failed: ${err.message}`);
     } finally {
@@ -336,64 +337,98 @@ export const JudgeReportView: React.FC = () => {
       </div>
 
       {/* ─────────────────────────────────────────────
-          2. OVERALL SCORE & VISUAL SCORE
+          2. OVERALL SCORE & VISUAL SCORE COCKPIT
           ───────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 gap-2">
           <div>
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">
               2. {language === 'tr' ? 'Girişim Skoru & Boyut Göstergesi' : 'Overall Score & Visual Dimensions'}
             </h2>
-            <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white mt-1">
-              {totalScore} <span className="text-sm font-normal text-slate-400">/ 100</span>
-            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {language === 'tr'
+                ? '4 temel boyut üzerinden ağırlıklı kompozit girişim değerlendirmesi'
+                : 'Weighted composite score across 4 core venture viability pillars'}
+            </p>
           </div>
-          <div className="text-right">
-            <span className="text-[10px] font-mono text-slate-400 uppercase font-bold block">DEĞERLENDİRME</span>
+          <div className="text-left sm:text-right">
+            <span className="text-[10px] font-mono text-slate-400 uppercase font-bold block">
+              {language === 'tr' ? 'HAZIRLIK SEVİYESİ' : 'READINESS TIER'}
+            </span>
             <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
               {score?.recommendationTier ? score.recommendationTier.replace('_', ' ') : 'MODERATE READINESS'}
             </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="font-semibold text-slate-600 dark:text-slate-400">Problem Aciliyeti</span>
-              <span className="font-mono font-bold text-slate-900 dark:text-white">{dimProblem}/25</span>
-            </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${(dimProblem / 25) * 100}%` }} />
-            </div>
+        {/* Cockpit Grid: Hero Gauge + 4 Pillar Dimension Meters */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          {/* Main Hero Score Gauge */}
+          <div className="lg:col-span-4 flex flex-col items-center justify-center p-5 rounded-2xl bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80">
+            <ScoreGauge
+              score={totalScore}
+              maxScore={100}
+              variant="arc"
+              size={185}
+              tier={score?.recommendationTier ? score.recommendationTier.replace('_', ' ') : 'MODERATE READINESS'}
+              label={language === 'tr' ? 'Kompozit Girişim Skoru' : 'Composite Venture Score'}
+              showTicks={true}
+              showMinMax={true}
+            />
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="font-semibold text-slate-600 dark:text-slate-400">Pazar Fırsatı</span>
-              <span className="font-mono font-bold text-slate-900 dark:text-white">{dimExecution}/25</span>
+          {/* 4 Dimension Progress Cards */}
+          <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+              <ScoreGauge
+                score={dimProblem}
+                maxScore={25}
+                variant="linear"
+                colorScheme="emerald"
+                label={language === 'tr' ? 'Problem Aciliyeti' : 'Problem Urgency'}
+                sublabel={language === 'tr' ? 'Doğrulanmış pazar sürtünmesi' : 'Validated market friction'}
+                showPercent={true}
+                thickness={7}
+              />
             </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div className="bg-blue-500 h-full rounded-full" style={{ width: `${(dimExecution / 25) * 100}%` }} />
-            </div>
-          </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="font-semibold text-slate-600 dark:text-slate-400">İş Modeli Gücü</span>
-              <span className="font-mono font-bold text-slate-900 dark:text-white">{dimBusiness}/25</span>
+            <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+              <ScoreGauge
+                score={dimExecution}
+                maxScore={25}
+                variant="linear"
+                colorScheme="blue"
+                label={language === 'tr' ? 'Pazar Fırsatı & Zamanlama' : 'Market Opportunity & Timing'}
+                sublabel={language === 'tr' ? 'Hedef kitle büyüklüğü ve talep' : 'Target ICP size & demand'}
+                showPercent={true}
+                thickness={7}
+              />
             </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div className="bg-amber-500 h-full rounded-full" style={{ width: `${(dimBusiness / 25) * 100}%` }} />
-            </div>
-          </div>
 
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="font-semibold text-slate-600 dark:text-slate-400">Risk & Hendek</span>
-              <span className="font-mono font-bold text-slate-900 dark:text-white">{dimMoat}/25</span>
+            <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+              <ScoreGauge
+                score={dimBusiness}
+                maxScore={25}
+                variant="linear"
+                colorScheme="amber"
+                label={language === 'tr' ? 'İş Modeli & Marjlar' : 'Business Model & Margins'}
+                sublabel={language === 'tr' ? 'Ödeme isteği ve birim ekonomi' : 'WTP & unit economics'}
+                showPercent={true}
+                thickness={7}
+              />
             </div>
-            <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-              <div className="bg-purple-500 h-full rounded-full" style={{ width: `${(dimMoat / 25) * 100}%` }} />
+
+            <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+              <ScoreGauge
+                score={dimMoat}
+                maxScore={25}
+                variant="linear"
+                colorScheme="purple"
+                label={language === 'tr' ? 'Savunulabilirlik & Hendek' : 'Defensibility & Moat'}
+                sublabel={language === 'tr' ? 'Rakip bariyeri & geçiş maliyeti' : 'Incumbent barrier & lock-in'}
+                showPercent={true}
+                thickness={7}
+              />
             </div>
           </div>
         </div>
@@ -655,6 +690,7 @@ export const JudgeReportView: React.FC = () => {
         ventureId={activeVenture.id}
         reportType="judge"
         title={t.reports.judgeTitle}
+        venture={activeVenture}
       />
     </div>
   );

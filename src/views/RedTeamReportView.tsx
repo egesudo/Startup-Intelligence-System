@@ -31,7 +31,7 @@ export const RedTeamReportView: React.FC = () => {
     if (!activeVenture) return;
     try {
       setIsDownloading(true);
-      await downloadPdfReport(activeVenture.id, 'red_team', activeVenture.title);
+      await downloadPdfReport(activeVenture.id, 'red_team', activeVenture.title, activeVenture);
     } catch (err: any) {
       alert(`Download failed: ${err.message}`);
     } finally {
@@ -519,6 +519,7 @@ export const RedTeamReportView: React.FC = () => {
         ventureId={activeVenture.id}
         reportType="red_team"
         title={language === 'tr' ? 'Red Team Raporu' : 'Red Team Report'}
+        venture={activeVenture}
       />
     </div>
   );

@@ -65,20 +65,22 @@ export class ScoringEngine {
     venture?: Partial<Venture> | null
   ): VentureScore {
     // Collect deterministic context text for semantic fingerprinting
-    const titleText = (venture?.title || '').trim();
-    const rawIdeaText = (venture?.rawIdea || venture?.description || '').trim();
-    const problemText = (venture?.problem || '').trim();
-    const solutionText = (venture?.solution || '').trim();
-    const customerText = (venture?.targetCustomer || venture?.targetAudience || '').trim();
-    const businessModelText = (venture?.businessModel || venture?.monetizationIdea || '').trim();
+    const rawIdeaText = (venture?.rawIdea || venture?.description || '').trim().toLowerCase();
+    const problemText = (venture?.problem || '').trim().toLowerCase();
+    const solutionText = (venture?.solution || '').trim().toLowerCase();
+    const customerText = (venture?.targetCustomer || venture?.targetAudience || '').trim().toLowerCase();
+    const businessModelText = (venture?.businessModel || venture?.monetizationIdea || '').trim().toLowerCase();
+    const titleText = (venture?.title || '').trim().toLowerCase();
 
-    const fullIdeaSignature = `${titleText}|${rawIdeaText}|${problemText}|${solutionText}|${customerText}|${businessModelText}`;
+    // Canonical invariant signature: prioritize raw idea text so missing/different auto titles don't cause variance
+    const primaryIdea = rawIdeaText || `${problemText} ${solutionText}`.trim() || titleText;
+    const fullIdeaSignature = `idea=${primaryIdea}|cust=${customerText}|biz=${businessModelText}`;
     const ideaHash = stableHash(fullIdeaSignature);
 
     // ─────────────────────────────────────────────────────────
     // Factor 1: Market Problem Urgency & Evidence (Max 25 pts)
     // ─────────────────────────────────────────────────────────
-    let marketScore = 17; // Neutral baseline for a structured venture idea
+    let marketScore = 18; // Standard calibrated baseline
     const marketDeductions: string[] = [];
 
     if (research) {
@@ -91,15 +93,13 @@ export class ScoringEngine {
       );
       
       // Evidence-derived base from research confidence & source rigor
-      if (conf === 'HIGH' && verifiedSources.length >= 2) {
-        marketScore = 22;
-      } else if (conf === 'HIGH' || verifiedSources.length >= 1) {
-        marketScore = 19;
+      if (conf === 'HIGH') {
+        marketScore = verifiedSources.length >= 1 ? 22 : 20;
       } else if (conf === 'MEDIUM') {
-        marketScore = 16;
+        marketScore = 18;
       } else {
-        marketScore = 11;
-        marketDeductions.push('-5 pts: Low empirical source confidence or unverified market demand baseline.');
+        marketScore = 12;
+        marketDeductions.push('-6 pts: Low empirical source confidence or unverified market demand baseline.');
       }
 
       // Problem urgency & tailwinds vs headwinds
@@ -109,18 +109,17 @@ export class ScoringEngine {
         marketScore = Math.min(25, marketScore + 2);
       } else if (headwinds.length > tailwinds.length + 1) {
         marketScore = Math.max(0, marketScore - 3);
-        marketDeductions.push(`-3 pts: Significant market headwinds outnumber growth tailwinds (${headwinds.length} headwinds vs ${tailwinds.length} tailwinds).`);
+        marketDeductions.push(`-3 pts: Market headwinds exceed tailwinds (${headwinds.length} headwinds vs ${tailwinds.length} tailwinds).`);
       }
 
       // Unvalidated core market assumptions
       const unvalidated = research.unvalidatedAssumptions || [];
       if (unvalidated.length >= 3) {
-        const deduct = Math.min(5, unvalidated.length * 1.5);
-        marketScore = Math.max(0, marketScore - Math.round(deduct));
-        marketDeductions.push(`-${Math.round(deduct)} pts: ${unvalidated.length} critical unvalidated market assumptions.`);
+        marketScore = Math.max(0, marketScore - 3);
+        marketDeductions.push(`-3 pts: ${unvalidated.length} critical unvalidated market assumptions.`);
       } else if (unvalidated.length > 0) {
-        marketScore = Math.max(0, marketScore - unvalidated.length);
-        marketDeductions.push(`-${unvalidated.length} pts: ${unvalidated.length} unverified customer pain assumption(s).`);
+        marketScore = Math.max(0, marketScore - 1);
+        marketDeductions.push(`-1 pt: ${unvalidated.length} unverified customer pain assumption(s).`);
       }
 
       // Competitor saturation check
@@ -131,10 +130,10 @@ export class ScoringEngine {
       }
     } else {
       // Deterministic evaluation directly from venture input clarity
-      if (problemText.length > 30 && customerText.length > 10) {
-        marketScore = 18;
-      } else if (problemText.length < 15) {
-        marketScore = 13;
+      if (primaryIdea.length > 40 && customerText.length > 5) {
+        marketScore = 19;
+      } else if (primaryIdea.length < 20) {
+        marketScore = 14;
         marketDeductions.push('-4 pts: Problem statement lacks specific pain-point detail.');
       }
     }
@@ -144,7 +143,7 @@ export class ScoringEngine {
     // ─────────────────────────────────────────────────────────
     // Factor 2: Business Model & Unit Economics Viability (Max 25 pts)
     // ─────────────────────────────────────────────────────────
-    let businessScore = 17; // Neutral baseline
+    let businessScore = 18; // Calibrated baseline
     const businessDeductions: string[] = [];
 
     if (business) {
@@ -155,25 +154,25 @@ export class ScoringEngine {
 
       // Base score derived from Gross Margin and Contribution Economics
       if (grossMargin !== undefined && typeof grossMargin === 'number') {
-        if (grossMargin >= 80) {
+        if (grossMargin >= 75) {
           businessScore = 22;
-        } else if (grossMargin >= 65) {
+        } else if (grossMargin >= 60) {
           businessScore = 19;
-        } else if (grossMargin >= 50) {
+        } else if (grossMargin >= 45) {
           businessScore = 15;
         } else if (grossMargin >= 30) {
           businessScore = 10;
           businessDeductions.push(`-6 pts: Low gross margin (${grossMargin}%) severely limits operational contribution.`);
         } else {
-          businessScore = 5;
+          businessScore = 6;
           businessDeductions.push(`-12 pts: Sub-30% gross margin (${grossMargin}%) creates acute unit economic drag.`);
         }
       } else {
-        const archetypeStr = (business.archetype || businessModelText || '').toLowerCase();
-        if (archetypeStr.includes('saas') || archetypeStr.includes('software')) {
-          businessScore = 19;
+        const archetypeStr = (business.archetype || businessModelText || primaryIdea).toLowerCase();
+        if (archetypeStr.includes('saas') || archetypeStr.includes('software') || archetypeStr.includes('ai')) {
+          businessScore = 20;
         } else if (archetypeStr.includes('marketplace')) {
-          businessScore = 16;
+          businessScore = 17;
         } else {
           businessScore = 16;
         }
@@ -183,14 +182,14 @@ export class ScoringEngine {
       if (pricingPower === 'STRONG') {
         businessScore = Math.min(25, businessScore + 2);
       } else if (pricingPower === 'WEAK') {
-        businessScore = Math.max(0, businessScore - 4);
-        businessDeductions.push('-4 pts: Weak pricing power; vulnerable to commoditization or aggressive discounting.');
+        businessScore = Math.max(0, businessScore - 3);
+        businessDeductions.push('-3 pts: Weak pricing power; vulnerable to commoditization or aggressive discounting.');
       }
 
       // Capital Requirement & Burn Intensity
       if (capReq === 'HEAVY_CAPEX' || capReq === 'WORKING_CAPITAL_INTENSIVE') {
-        businessScore = Math.max(0, businessScore - 4);
-        businessDeductions.push('-4 pts: High CapEx/Working capital intensity accelerates runway burn risk.');
+        businessScore = Math.max(0, businessScore - 3);
+        businessDeductions.push('-3 pts: High CapEx/Working capital intensity accelerates runway burn risk.');
       } else if (capReq === 'CAPITAL_LIGHT') {
         businessScore = Math.min(25, businessScore + 1);
       }
@@ -198,11 +197,11 @@ export class ScoringEngine {
       // Payback Period
       if (commEco?.paybackMonths !== undefined && typeof commEco.paybackMonths === 'number') {
         if (commEco.paybackMonths > 18) {
-          businessScore = Math.max(0, businessScore - 4);
-          businessDeductions.push(`-4 pts: Extended CAC payback period (${commEco.paybackMonths} months > 18 mo).`);
+          businessScore = Math.max(0, businessScore - 3);
+          businessDeductions.push(`-3 pts: Extended CAC payback period (${commEco.paybackMonths} months > 18 mo).`);
         } else if (commEco.paybackMonths > 12) {
-          businessScore = Math.max(0, businessScore - 2);
-          businessDeductions.push(`-2 pts: Moderately slow CAC payback (${commEco.paybackMonths} months).`);
+          businessScore = Math.max(0, businessScore - 1);
+          businessDeductions.push(`-1 pt: Moderately slow CAC payback (${commEco.paybackMonths} months).`);
         }
       }
 
@@ -218,17 +217,17 @@ export class ScoringEngine {
         a.evidenceStatus === 'UNSUPPORTED'
       );
       if (highRiskAssumptions.length >= 3) {
-        businessScore = Math.max(0, businessScore - 4);
-        businessDeductions.push(`-4 pts: ${highRiskAssumptions.length} unvalidated commercial or unit economic assumption(s).`);
+        businessScore = Math.max(0, businessScore - 3);
+        businessDeductions.push(`-3 pts: ${highRiskAssumptions.length} unvalidated commercial or unit economic assumption(s).`);
       } else if (highRiskAssumptions.length > 0) {
-        businessScore = Math.max(0, businessScore - highRiskAssumptions.length * 1.5);
-        businessDeductions.push(`-${Math.round(highRiskAssumptions.length * 1.5)} pts: ${highRiskAssumptions.length} unverified commercial assumption(s).`);
+        businessScore = Math.max(0, businessScore - 1);
+        businessDeductions.push(`-1 pt: ${highRiskAssumptions.length} unverified commercial assumption(s).`);
       }
     } else {
-      if (businessModelText.length > 15) {
-        businessScore = 17;
+      if (businessModelText.length > 15 || primaryIdea.includes('b2b') || primaryIdea.includes('saas')) {
+        businessScore = 19;
       } else {
-        businessScore = 14;
+        businessScore = 15;
         businessDeductions.push('-3 pts: Monetization model requires preliminary pricing clarity.');
       }
     }
@@ -238,7 +237,7 @@ export class ScoringEngine {
     // ─────────────────────────────────────────────────────────
     // Factor 3: Defensibility & Moat Strength (Max 25 pts)
     // ─────────────────────────────────────────────────────────
-    let moatScore = 15; // Neutral baseline
+    let moatScore = 16; // Baseline
     const moatDeductions: string[] = [];
 
     if (business) {
@@ -246,31 +245,31 @@ export class ScoringEngine {
       const strength = moat?.strength;
 
       if (strength === 'STRONG') {
-        moatScore = 22;
+        moatScore = 21;
       } else if (strength === 'FRAGILE') {
-        moatScore = 9;
-        moatDeductions.push('-6 pts: Fragile defensibility moat; feature can be rapidly cloned by incumbents in 3-6 months.');
+        moatScore = 11;
+        moatDeductions.push('-5 pts: Fragile defensibility moat; feature can be replicated by incumbents.');
       } else if (strength === 'NONE') {
-        moatScore = 4;
-        moatDeductions.push('-12 pts: Zero defensibility moat identified; pure commodity workflow.');
+        moatScore = 6;
+        moatDeductions.push('-10 pts: Zero defensibility moat identified; pure commodity workflow.');
       } else {
-        moatScore = 15;
+        moatScore = 16;
       }
 
       // Moat type modifiers
       const moatType = moat?.type;
       if (moatType === 'NONE') {
-        moatScore = Math.max(0, moatScore - 3);
-        moatDeductions.push('-3 pts: Pure commodity tool without network effects or data lock-in.');
+        moatScore = Math.max(0, moatScore - 2);
+        moatDeductions.push('-2 pts: Pure commodity tool without network effects or data lock-in.');
       } else if (moatType === 'HIGH_SWITCHING_COST' || moatType === 'NETWORK_EFFECTS' || moatType === 'DATA_LOCKIN') {
         moatScore = Math.min(25, moatScore + 2);
       }
     } else {
-      const techText = (venture?.technology || solutionText).toLowerCase();
-      if (techText.includes('patent') || techText.includes('proprietary') || techText.includes('algorithm') || techText.includes('network')) {
+      const techText = (venture?.technology || solutionText || primaryIdea).toLowerCase();
+      if (techText.includes('patent') || techText.includes('proprietary') || techText.includes('algorithm') || techText.includes('network') || techText.includes('yapay zeka') || techText.includes('ai')) {
         moatScore = 18;
       } else {
-        moatScore = 13;
+        moatScore = 14;
         moatDeductions.push('-2 pts: Differentiation wedge requires deeper workflow or data lock-in.');
       }
     }
@@ -280,7 +279,7 @@ export class ScoringEngine {
     // ─────────────────────────────────────────────────────────
     // Factor 4: Execution & Adversarial Risk Profile (Max 25 pts)
     // ─────────────────────────────────────────────────────────
-    let executionScore = 24; // Starts from high baseline, penalized directly by empirical vulnerabilities
+    let executionScore = 22; // High baseline
     const executionDeductions: string[] = [];
 
     if (redTeam) {
@@ -289,16 +288,16 @@ export class ScoringEngine {
       const highFlaws = risks.filter(f => f.severity === 'HIGH');
       const mediumFlaws = risks.filter(f => f.severity === 'MEDIUM');
 
-      // Lethal flaws penalty (severe linear penalty)
+      // Lethal flaws penalty
       if (lethalFlaws.length > 0) {
-        const deduct = Math.min(14, lethalFlaws.length * 6);
+        const deduct = Math.min(10, lethalFlaws.length * 4);
         executionScore = Math.max(0, executionScore - deduct);
         executionDeductions.push(`-${deduct} pts: ${lethalFlaws.length} fatal flaw / lethal vulnerability identified by Red Team.`);
       }
 
       // High severity failure modes
       if (highFlaws.length > 0) {
-        const deduct = Math.min(9, highFlaws.length * 3);
+        const deduct = Math.min(6, highFlaws.length * 2);
         executionScore = Math.max(0, executionScore - deduct);
         executionDeductions.push(`-${deduct} pts: ${highFlaws.length} high-severity operational or failure mechanism(s).`);
       }
@@ -312,7 +311,7 @@ export class ScoringEngine {
       // Direct contradictions between founder claims and market reality
       const contradictions = redTeam.contradictions || [];
       if (contradictions.length > 0) {
-        const deduct = Math.min(5, contradictions.length * 2);
+        const deduct = Math.min(4, contradictions.length * 2);
         executionScore = Math.max(0, executionScore - deduct);
         executionDeductions.push(`-${deduct} pts: ${contradictions.length} factual contradiction(s) with market evidence.`);
       }
@@ -324,7 +323,7 @@ export class ScoringEngine {
         executionDeductions.push(`-2 pts: ${failureConditions.length} distinct failure trigger condition(s) mapped.`);
       }
     } else {
-      executionScore = 18;
+      executionScore = 19;
     }
 
     executionScore = Math.max(0, Math.min(25, Math.round(executionScore)));

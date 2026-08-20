@@ -87,7 +87,7 @@ export const BusinessReportView: React.FC = () => {
     if (!activeVenture) return;
     try {
       setIsDownloading(true);
-      await downloadPdfReport(activeVenture.id, 'business', activeVenture.title);
+      await downloadPdfReport(activeVenture.id, 'business', activeVenture.title, activeVenture);
     } catch (err: any) {
       alert(`Download failed: ${err.message}`);
     } finally {
@@ -1088,6 +1088,7 @@ export const BusinessReportView: React.FC = () => {
         ventureId={activeVenture.id}
         reportType="business"
         title={t.reports.businessTitle}
+        venture={activeVenture}
       />
 
       {/* Source Grounding & Live Verification Modal */}

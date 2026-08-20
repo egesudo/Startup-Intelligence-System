@@ -36,7 +36,7 @@ export const ResearchReportView: React.FC = () => {
     if (!activeVenture) return;
     try {
       setIsDownloading(true);
-      await downloadPdfReport(activeVenture.id, 'research', activeVenture.title);
+      await downloadPdfReport(activeVenture.id, 'research', activeVenture.title, activeVenture);
     } catch (err: any) {
       alert(`Download failed: ${err.message}`);
     } finally {
@@ -607,6 +607,7 @@ export const ResearchReportView: React.FC = () => {
         ventureId={activeVenture.id}
         reportType="research"
         title={t.reports.researchTitle}
+        venture={activeVenture}
       />
     </div>
   );

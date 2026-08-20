@@ -45,6 +45,8 @@ export interface GeminiCallConfig {
   responseMimeType?: string;
   responseSchema?: any;
   temperature?: number;
+  tools?: any[];
+  toolConfig?: any;
 }
 
 export interface GeminiGenerateOptions {
@@ -52,6 +54,20 @@ export interface GeminiGenerateOptions {
   config?: GeminiCallConfig;
   preferredModel?: string;
   maxRetries?: number;
+}
+
+export interface GeminiExecutionResult {
+  text: string | null;
+  groundingMetadata?: {
+    webSearchQueries?: string[];
+    groundingChunks?: Array<{
+      web?: {
+        uri: string;
+        title: string;
+      };
+    }>;
+    groundingSupports?: any[];
+  };
 }
 
 const CANDIDATE_MODELS = [
@@ -65,9 +81,17 @@ const CANDIDATE_MODELS = [
  * Always catches errors and returns null on failure so the system falls back safely without 500s.
  */
 export async function executeGeminiWithFallback(options: GeminiGenerateOptions): Promise<string | null> {
+  const result = await executeGeminiWithGrounding(options);
+  return result.text;
+}
+
+/**
+ * Execute Gemini with Grounding metadata preservation (webSearchQueries, groundingChunks, etc.)
+ */
+export async function executeGeminiWithGrounding(options: GeminiGenerateOptions): Promise<GeminiExecutionResult> {
   const ai = getAiClient();
   if (!ai) {
-    return null;
+    return { text: null };
   }
 
   const modelsToTry = options.preferredModel 
@@ -92,7 +116,16 @@ export async function executeGeminiWithFallback(options: GeminiGenerateOptions):
         });
 
         if (response && response.text) {
-          return response.text;
+          const candidate = response.candidates?.[0];
+          const groundingMetadata = candidate?.groundingMetadata;
+          return {
+            text: response.text,
+            groundingMetadata: groundingMetadata ? {
+              webSearchQueries: groundingMetadata.webSearchQueries,
+              groundingChunks: groundingMetadata.groundingChunks as any,
+              groundingSupports: (groundingMetadata as any).groundingSupports
+            } : undefined
+          };
         }
       } catch (err: any) {
         const msg = err?.message || String(err);
@@ -112,5 +145,5 @@ export async function executeGeminiWithFallback(options: GeminiGenerateOptions):
   }
 
   console.warn(`[GeminiClient] AI generation unavailable or quota reached on models (${modelsToTry.join(', ')}). Using deterministic synthesis.`);
-  return null;
+  return { text: null };
 }

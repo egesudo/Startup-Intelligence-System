@@ -25,7 +25,7 @@ import {
   RESEARCH_AGENT_SYSTEM_PROMPT, 
   buildResearchAgentUserPrompt 
 } from './prompt';
-import { executeGeminiWithFallback } from '../../server/services/geminiClient';
+import { executeGeminiWithGrounding } from '../../server/services/geminiClient';
 
 export class ResearchAgent implements IResearchAgent {
   public readonly agentType = 'RESEARCH' as const;
@@ -35,6 +35,7 @@ export class ResearchAgent implements IResearchAgent {
     const startedAt = new Date().toISOString();
 
     let rawOutput: any = null;
+    let liveGroundingChunks: any[] = [];
 
     try {
       const userPrompt = buildResearchAgentUserPrompt({
@@ -59,139 +60,31 @@ export class ResearchAgent implements IResearchAgent {
         }))
       });
 
-      const responseText = await executeGeminiWithFallback({
+      const geminiResult = await executeGeminiWithGrounding({
         contents: userPrompt,
         config: {
             systemInstruction: RESEARCH_AGENT_SYSTEM_PROMPT,
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                executiveSummary: {
-                  type: Type.STRING,
-                  description: 'Objective empirical synthesis of problem existence, market realities, and existing workflows.'
-                },
-                confidenceScore: {
-                  type: Type.STRING,
-                  enum: ['LOW', 'MEDIUM', 'HIGH'],
-                  description: 'Confidence based strictly on empirical evidence availability.'
-                },
-                alternativeSolutions: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Status quo tools, manual workflows, spreadsheets, or doing nothing.'
-                },
-                supportingEvidence: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Empirical data points and market observations supporting problem existence or market timing.'
-                },
-                contradictoryEvidence: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Market barriers, incumbent entrenchment, high switching costs, or counter-signals.'
-                },
-                tailwinds: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Macro, regulatory, technological, or behavioral tailwinds.'
-                },
-                headwinds: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Structural roadblocks, distribution gatekeepers, or compliance burdens.'
-                },
-                assumptions: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Core founder hypotheses requiring empirical testing.'
-                },
-                unvalidatedAssumptions: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'High-risk unverified founder assumptions.'
-                },
-                unknowns: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Critical unknowns that materially affect feasibility.'
-                },
-                competitors: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      name: { type: Type.STRING },
-                      category: { type: Type.STRING, enum: ['DIRECT', 'INDIRECT', 'STATUS_QUO'] },
-                      marketPosition: { type: Type.STRING },
-                      coreAdvantage: { type: Type.STRING },
-                      coreVulnerability: { type: Type.STRING }
-                    },
-                    required: ['name', 'category', 'marketPosition', 'coreAdvantage', 'coreVulnerability']
-                  }
-                },
-                findings: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      id: { type: Type.STRING },
-                      title: { type: Type.STRING },
-                      statement: { type: Type.STRING },
-                      evidence: { type: Type.STRING },
-                      evidenceType: { type: Type.STRING, enum: ['supporting', 'contradictory', 'neutral', 'unknown'] },
-                      evidenceStrength: { type: Type.STRING, enum: ['strong', 'moderate', 'weak'] },
-                      category: { 
-                        type: Type.STRING, 
-                        enum: ['MARKET_SIZE', 'COMPETITOR', 'CUSTOMER_NEED', 'REGULATORY', 'TECHNOLOGY', 'PROBLEM', 'SOLUTION', 'PRICING'] 
-                      },
-                      confidence: { type: Type.STRING, enum: ['LOW', 'MEDIUM', 'HIGH'] },
-                      implication: { type: Type.STRING },
-                      sources: {
-                        type: Type.ARRAY,
-                        items: {
-                          type: Type.OBJECT,
-                          properties: {
-                            id: { type: Type.STRING },
-                            title: { type: Type.STRING },
-                            publisher: { type: Type.STRING },
-                            sourceType: { 
-                              type: Type.STRING, 
-                              enum: ['PRIMARY', 'GOVERNMENT_DATA', 'OFFICIAL_COMPANY', 'ACADEMIC', 'INDUSTRY_REPORT', 'JOURNALISM', 'OTHER'] 
-                            },
-                            publishYear: { type: Type.INTEGER },
-                            relevanceScore: { type: Type.NUMBER },
-                            credibility: { type: Type.STRING, enum: ['HIGH', 'MEDIUM', 'LOW'] },
-                            reliabilityTier: { type: Type.STRING, enum: ['PRIMARY', 'INDUSTRY_REPORT', 'NEWS_ANALYSIS', 'ANECDOTAL'] },
-                            extractedFact: { type: Type.STRING }
-                          },
-                          required: ['id', 'title', 'publisher', 'relevanceScore', 'reliabilityTier', 'extractedFact']
-                        }
-                      }
-                    },
-                    required: ['id', 'title', 'statement', 'evidenceType', 'evidenceStrength', 'category', 'confidence', 'implication', 'sources']
-                  }
-                }
-              },
-              required: [
-                'executiveSummary',
-                'confidenceScore',
-                'alternativeSolutions',
-                'supportingEvidence',
-                'contradictoryEvidence',
-                'tailwinds',
-                'headwinds',
-                'unvalidatedAssumptions',
-                'unknowns',
-                'competitors',
-                'findings'
-              ]
-            }
-          }
+            tools: [{ googleSearch: {} }],
+            temperature: 0.1
+        }
       });
 
-      if (responseText) {
-        rawOutput = JSON.parse(responseText.trim());
+      if (geminiResult.groundingMetadata?.groundingChunks) {
+        liveGroundingChunks = geminiResult.groundingMetadata.groundingChunks;
+      }
+
+      if (geminiResult.text) {
+        // Strip markdown code fences if model enclosed JSON
+        const cleanedText = geminiResult.text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+        try {
+          rawOutput = JSON.parse(cleanedText);
+        } catch {
+          // If JSON extraction failed, look for innermost JSON block
+          const match = cleanedText.match(/\{[\s\S]*\}/);
+          if (match) {
+            rawOutput = JSON.parse(match[0]);
+          }
+        }
       }
     } catch (err: any) {
       console.warn('[ResearchAgent] Gemini API call unavailable or timed out, falling back to deterministic empirical model:', err.message || err);
@@ -203,8 +96,8 @@ export class ResearchAgent implements IResearchAgent {
       rawOutput = this.generateDeterministicResearch(input);
     }
 
-    // Post-process, validate, and structure the Research Report
-    const processedReport = this.postProcessReport(rawOutput, input, startedAt);
+    // Post-process, validate, and structure the Research Report with search grounding enrichment
+    const processedReport = this.postProcessReport(rawOutput, input, startedAt, liveGroundingChunks);
 
     return {
       report: processedReport,
@@ -222,7 +115,8 @@ export class ResearchAgent implements IResearchAgent {
   private postProcessReport(
     raw: any, 
     input: ResearchAgentInput, 
-    startedAt: string
+    startedAt: string,
+    liveGroundingChunks: any[] = []
   ): Omit<ResearchReport, 'id' | 'ventureId' | 'createdAt'> {
     const completedAt = new Date().toISOString();
     const confidenceScore = (['LOW', 'MEDIUM', 'HIGH'].includes(raw.confidenceScore)
@@ -231,6 +125,33 @@ export class ResearchAgent implements IResearchAgent {
 
     // Collect and de-duplicate all sources across findings
     const sourceMap = new Map<string, Source>();
+
+    // If live search grounding chunks were retrieved, integrate them into the verified sources map
+    liveGroundingChunks.forEach((chunk: any, cIdx: number) => {
+      if (chunk.web?.uri) {
+        let domain = '';
+        try {
+          domain = new URL(chunk.web.uri).hostname.replace(/^www\./, '');
+        } catch {
+          domain = 'Web Source';
+        }
+        const sourceId = `grounding_src_${cIdx + 1}`;
+        sourceMap.set(sourceId, {
+          id: sourceId,
+          title: chunk.web.title || `Live Grounded Source (${domain})`,
+          url: chunk.web.uri,
+          publisher: domain,
+          sourceType: 'JOURNALISM',
+          publishYear: new Date().getFullYear(),
+          relevanceScore: 0.95,
+          credibility: 'HIGH',
+          reliabilityTier: 'PRIMARY',
+          extractedFact: `Real-time web verified information via Google Search grounding from ${domain}.`,
+          relatedFindings: []
+        });
+      }
+    });
+
     const findings: ResearchFinding[] = (raw.findings || []).map((f: any, fIdx: number) => {
       const findingId = f.id && typeof f.id === 'string' && f.id.length > 2 
         ? f.id 

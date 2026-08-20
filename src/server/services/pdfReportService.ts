@@ -4,7 +4,7 @@
  * and uploads them to Supabase Storage.
  */
 
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from 'pdf-lib';
 import { storageService, StorageUploadResult } from './storageService';
 import {
   Venture,
@@ -17,6 +17,42 @@ import {
 } from '../../types/domain';
 
 export type ReportArtifactType = 'research' | 'business' | 'red_team' | 'judge' | 'decision';
+
+/**
+ * Universal text sanitizer for standard PDF fonts (WinAnsi encoding)
+ * Converts Turkish characters, unicode quotes, dashes, bullets, and emojis to safe ASCII/WinAnsi characters.
+ */
+export function sanitizePdfText(input?: any): string {
+  if (input === null || input === undefined) return '';
+  const str = String(input);
+  return str
+    // Turkish characters -> standard ASCII equivalents
+    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U')
+    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+    // Typographical quotes, apostrophes, dashes & bullets
+    .replace(/[“”"„«»]/g, '"')
+    .replace(/[‘’'`]/g, "'")
+    .replace(/[—–]/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[•·◦●]/g, '-')
+    .replace(/[₺]/g, 'TL')
+    .replace(/[€]/g, 'EUR')
+    .replace(/[£]/g, 'GBP')
+    .replace(/[✔✓]/g, '[OK]')
+    .replace(/[✖✗]/g, '[X]')
+    .replace(/[→⇒]/g, '->')
+    .replace(/[←⇐]/g, '<-')
+    // Strip non-printable / control chars and unsupported unicode beyond WinAnsi
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g, (char) => {
+      const normalized = char.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return normalized && normalized !== char ? normalized : ' ';
+    })
+    .replace(/[\r\n\t]+/g, ' ');
+}
 
 export class PdfReportService {
   /**
@@ -31,11 +67,47 @@ export class PdfReportService {
     const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
     const fontOblique = await doc.embedFont(StandardFonts.HelveticaOblique);
 
-    const safeTitle = (venture.title || 'Venture').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+    // Wrap font width measurement to always be safe
+    const wrapFont = (f: PDFFont) => {
+      const orig = f.widthOfTextAtSize.bind(f);
+      f.widthOfTextAtSize = (text: string, size: number) => {
+        const clean = sanitizePdfText(text);
+        try {
+          return orig(clean, size);
+        } catch {
+          const ascii = clean.replace(/[^\x20-\x7E]/g, ' ');
+          return orig(ascii, size);
+        }
+      };
+    };
+    wrapFont(font);
+    wrapFont(fontBold);
+    wrapFont(fontOblique);
+
+    const safeTitle = (sanitizePdfText(venture.title) || 'Venture').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
     const formattedType = reportType.replace('_', '-');
     const fileName = `${safeTitle}_${formattedType}_report.pdf`;
 
-    let page = doc.addPage([595.28, 841.89]); // A4 dimensions
+    // Wrap page drawText to always sanitize and gracefully fallback on encoding error
+    const wrapPage = (p: PDFPage) => {
+      const origDrawText = p.drawText.bind(p);
+      p.drawText = (text: string, options?: any) => {
+        const clean = sanitizePdfText(text);
+        try {
+          return origDrawText(clean, options);
+        } catch (err) {
+          try {
+            const ascii = clean.replace(/[^\x20-\x7E]/g, ' ');
+            return origDrawText(ascii, options);
+          } catch {
+            // Silently prevent crashing the whole PDF build on isolated glyph error
+          }
+        }
+      };
+      return p;
+    };
+
+    let page = wrapPage(doc.addPage([595.28, 841.89])); // A4 dimensions
     let y = 790;
     const margin = 45;
     const pageWidth = 595.28;
@@ -43,7 +115,7 @@ export class PdfReportService {
 
     const checkNewPage = (neededSpace: number = 50) => {
       if (y - neededSpace < margin) {
-        page = doc.addPage([595.28, 841.89]);
+        page = wrapPage(doc.addPage([595.28, 841.89]));
         y = 790;
       }
     };
@@ -2375,8 +2447,8 @@ export class PdfReportService {
     // Add page numbers
     const totalPages = doc.getPageCount();
     for (let i = 0; i < totalPages; i++) {
-      const p = doc.getPage(i);
-      p.drawText(`Page ${i + 1} of ${totalPages} • Confidential Startup Intelligence`, {
+      const p = wrapPage(doc.getPage(i));
+      p.drawText(`Page ${i + 1} of ${totalPages} - Confidential Startup Intelligence`, {
         x: margin,
         y: 25,
         size: 8,

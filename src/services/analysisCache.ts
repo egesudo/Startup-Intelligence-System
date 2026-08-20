@@ -62,7 +62,7 @@ const MAX_LOCAL_STORAGE_ITEMS = 25;
 /**
  * Normalizes text for robust invariant matching
  */
-function normalizeString(val?: string | null): string {
+export function normalizeString(val?: string | null): string {
   if (!val) return '';
   return val
     .toLowerCase()
@@ -78,7 +78,7 @@ function normalizeString(val?: string | null): string {
  */
 export function generateStableHash(str: string): number {
   let hash = 5381;
-  const clean = str.trim();
+  const clean = (str || '').trim().toLowerCase();
   for (let i = 0; i < clean.length; i++) {
     hash = ((hash << 5) + hash) + clean.charCodeAt(i);
     hash = hash & hash;
@@ -87,15 +87,19 @@ export function generateStableHash(str: string): number {
 }
 
 /**
- * Derives a canonical, invariant fingerprint string and unique key for any venture idea
+ * Derives a canonical, invariant fingerprint string and unique key for any venture idea.
+ * Anchored primarily on normalized idea content so that missing/generated titles or slight
+ * formatting differences do not break cache lookups or cause score variance.
  */
 export function deriveCanonicalIdeaFingerprint(input: IdeaInputFingerprint): {
   canonicalString: string;
   cacheKey: string;
   ideaHash: number;
 } {
-  const normTitle = normalizeString(input.title);
-  const normIdea = normalizeString(input.idea || input.rawIdea || input.description || `${input.problem || ''} ${input.solution || ''}`);
+  // Extract core idea text in priority order
+  const rawIdea = input.idea || input.rawIdea || input.description || [input.problem, input.solution].filter(Boolean).join(' ') || input.title || '';
+  const normIdea = normalizeString(rawIdea);
+  
   const normCustomer = normalizeString(input.targetCustomer || input.targetAudience);
   const normGeo = normalizeString(input.geography || input.marketGeography);
   const normContext = normalizeString(input.context || input.businessModel);
@@ -122,8 +126,8 @@ export function deriveCanonicalIdeaFingerprint(input: IdeaInputFingerprint): {
     .map(([k, v]) => `${k}:${v}`)
     .join(';');
 
+  // Invariant canonical string: independent of auto-generated titles
   const canonicalString = [
-    `title=${normTitle}`,
     `idea=${normIdea}`,
     `cust=${normCustomer}`,
     `geo=${normGeo}`,
@@ -244,6 +248,20 @@ class AnalysisCacheService {
         }
       } catch {
         cached = null;
+      }
+    }
+
+    // 4. Secondary fallback: Semantic text similarity across existing cached entries
+    if (!cached) {
+      const targetNorm = normalizeString(input.idea || input.rawIdea || input.description || input.title);
+      if (targetNorm.length >= 15) {
+        for (const entry of this.memoryCache.values()) {
+          const entryNorm = normalizeString(entry.rawIdeaText || entry.title || entry.canonicalIdea);
+          if (entryNorm === targetNorm || entryNorm.includes(targetNorm) || targetNorm.includes(entryNorm)) {
+            cached = entry;
+            break;
+          }
+        }
       }
     }
 

@@ -11,6 +11,7 @@ import { CompetitorPositioningChart } from '../components/visual/CompetitorPosit
 import { UnitEconomicsWaterfallChart } from '../components/visual/UnitEconomicsWaterfallChart';
 import { RiskMatrixGrid } from '../components/visual/RiskMatrixGrid';
 import { CrossAgentArbitrationTable } from '../components/visual/CrossAgentArbitrationTable';
+import { ScoreDistributionWidget } from '../components/visual/ScoreDistributionWidget';
 import {
   Scale,
   Search,
@@ -212,7 +213,7 @@ export const DecisionDashboardView: React.FC = () => {
   ) => {
     try {
       setDownloadingType(type);
-      await downloadPdfReport(activeVenture.id, type, activeVenture.title);
+      await downloadPdfReport(activeVenture.id, type, activeVenture.title, activeVenture);
     } catch (err: any) {
       alert(language === 'tr' ? `İndirme başarısız: ${err.message}` : `Download failed: ${err.message}`);
     } finally {
@@ -267,7 +268,6 @@ export const DecisionDashboardView: React.FC = () => {
             <span className="text-[10px] font-bold uppercase tracking-wider font-mono px-2 py-0.5 rounded bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
               {language === 'tr' ? 'Girişim Analiz Dosyası' : 'Venture Evaluation Dossier'}
             </span>
-            <span className="text-xs text-slate-400 font-mono">ID: {activeVenture.id.slice(0, 8)}</span>
 
             {/* Cache Indicator Badge */}
             {(isLoadedFromCache || activeCacheEntry) && (
@@ -478,6 +478,11 @@ export const DecisionDashboardView: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* ─────────────────────────────────────────────────────────────
+          PORTFOLIO INTELLIGENCE: ALL VENTURES SCORE DISTRIBUTION WIDGET
+          ───────────────────────────────────────────────────────────── */}
+      <ScoreDistributionWidget />
 
       {/* ─────────────────────────────────────────────────────────────
           4. LEVEL 2 & 3: AŞAMALI GÖSTERİM (PROGRESSIVE DISCLOSURE)
@@ -1257,6 +1262,7 @@ export const DecisionDashboardView: React.FC = () => {
         ventureId={activeVenture.id}
         reportType={selectedReportType}
         title={modalTitle}
+        venture={activeVenture}
       />
     </div>
   );

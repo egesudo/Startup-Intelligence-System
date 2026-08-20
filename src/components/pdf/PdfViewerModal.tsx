@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Download, FileText, ExternalLink, Loader2, AlertCircle, RefreshCw, ShieldCheck } from 'lucide-react';
 import { fetchPdfBlob } from '../../utils/pdfDownloader';
+import { Venture } from '../../types/domain';
 
 interface PdfViewerModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface PdfViewerModalProps {
   ventureId: string;
   reportType: 'research' | 'business' | 'red_team' | 'judge' | 'decision';
   title: string;
+  venture?: Partial<Venture> | null;
 }
 
 export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
@@ -15,7 +17,8 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
   onClose,
   ventureId,
   reportType,
-  title
+  title,
+  venture
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +29,7 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const result = await fetchPdfBlob(ventureId, reportType, false);
+      const result = await fetchPdfBlob(ventureId, reportType, false, venture || undefined);
       setBlobUrl(result.blobUrl);
       setFileName(result.fileName);
     } catch (err: any) {
