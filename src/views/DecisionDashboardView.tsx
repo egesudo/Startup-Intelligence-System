@@ -12,6 +12,7 @@ import { UnitEconomicsWaterfallChart } from '../components/visual/UnitEconomicsW
 import { RiskMatrixGrid } from '../components/visual/RiskMatrixGrid';
 import { CrossAgentArbitrationTable } from '../components/visual/CrossAgentArbitrationTable';
 import { ScoreDistributionWidget } from '../components/visual/ScoreDistributionWidget';
+import { FounderCommentaryWidget } from '../components/visual/FounderCommentaryWidget';
 import {
   Scale,
   Search,
@@ -1195,7 +1196,12 @@ export const DecisionDashboardView: React.FC = () => {
       </section>
 
       {/* ─────────────────────────────────────────────────────────────
-          6. STRATEJİK KURUCU KARARI (Founder Strategic Commitment)
+          6. FOUNDER COMMENTARY & IDEA ANNOTATION
+          ───────────────────────────────────────────────────────────── */}
+      <FounderCommentaryWidget reportType="decision" />
+
+      {/* ─────────────────────────────────────────────────────────────
+          7. STRATEJİK KURUCU KARARI (Founder Strategic Commitment)
           ───────────────────────────────────────────────────────────── */}
       <section className="p-6 sm:p-8 rounded-3xl border bg-white/70 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 backdrop-blur-sm shadow-xs space-y-4">
         <div className="flex items-center justify-between">

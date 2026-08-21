@@ -251,13 +251,13 @@ class AnalysisCacheService {
       }
     }
 
-    // 4. Secondary fallback: Semantic text similarity across existing cached entries
+    // 4. Secondary fallback: Exact normalized idea text match across existing cached entries
     if (!cached) {
       const targetNorm = normalizeString(input.idea || input.rawIdea || input.description || input.title);
-      if (targetNorm.length >= 15) {
+      if (targetNorm.length >= 20) {
         for (const entry of this.memoryCache.values()) {
           const entryNorm = normalizeString(entry.rawIdeaText || entry.title || entry.canonicalIdea);
-          if (entryNorm === targetNorm || entryNorm.includes(targetNorm) || targetNorm.includes(entryNorm)) {
+          if (entryNorm === targetNorm) {
             cached = entry;
             break;
           }

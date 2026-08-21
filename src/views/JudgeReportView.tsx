@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { AgentIdentity } from '../components/visual/AgentIdentity';
 import { ScoreGauge } from '../components/visual/ScoreGauge';
+import { FounderCommentaryWidget } from '../components/visual/FounderCommentaryWidget';
 import { PdfViewerModal } from '../components/pdf/PdfViewerModal';
 import { downloadPdfReport } from '../utils/pdfDownloader';
 import { 
@@ -656,12 +657,17 @@ export const JudgeReportView: React.FC = () => {
       </div>
 
       {/* ─────────────────────────────────────────────
-          9. FINAL FOUNDER RECOMMENDATION
+          9. FOUNDER COMMENTARY & IDEA ANNOTATION
+          ───────────────────────────────────────────── */}
+      <FounderCommentaryWidget reportType="judge" />
+
+      {/* ─────────────────────────────────────────────
+          10. FINAL FOUNDER RECOMMENDATION
           ───────────────────────────────────────────── */}
       <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xs space-y-4 border border-slate-800">
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-400 font-mono">
-            9. {language === 'tr' ? 'Kurucuya Nihai Tavsiye (What Should The Founder Do Now?)' : 'Final Founder Recommendation'}
+            10. {language === 'tr' ? 'Kurucuya Nihai Tavsiye (What Should The Founder Do Now?)' : 'Final Founder Recommendation'}
           </h2>
           <span className="text-[10px] font-mono text-slate-400 uppercase">
             EXECUTIVE VERDICT

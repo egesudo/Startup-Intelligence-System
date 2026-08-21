@@ -15,6 +15,7 @@ import {
   Decision,
   NextAction
 } from '../../types/domain';
+import { detectDomain, generateLocalEvaluatedVenture } from '../../utils/clientFallbackEngine';
 
 export type ReportArtifactType = 'research' | 'business' | 'red_team' | 'judge' | 'decision';
 
@@ -59,9 +60,43 @@ export class PdfReportService {
    * Generates a clean PDF for the requested report type and returns the Uint8Array buffer.
    */
   async generateReportPdf(
-    venture: Venture,
+    inputVenture: Venture,
     reportType: ReportArtifactType
   ): Promise<{ buffer: Uint8Array; fileName: string }> {
+    let venture = inputVenture;
+    if (!venture.researchReport || !venture.businessReport || !venture.redTeamReport || !venture.judgeReport) {
+      try {
+        const generated = generateLocalEvaluatedVenture({
+          id: venture.id || 'venture-1',
+          title: venture.title || 'Startup Venture',
+          problem: venture.problem || venture.title || 'Target customer workflow friction',
+          targetAudience: venture.targetAudience,
+          businessModel: venture.businessModel,
+          status: 'evaluated',
+          createdAt: venture.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          ...venture
+        } as any);
+        venture = {
+          ...generated.venture,
+          ...venture,
+          researchReport: venture.researchReport || generated.venture.researchReport,
+          businessReport: venture.businessReport || generated.venture.businessReport,
+          redTeamReport: venture.redTeamReport || generated.venture.redTeamReport,
+          judgeReport: venture.judgeReport || generated.venture.judgeReport,
+          score: venture.score || generated.venture.score,
+          nextActions: (venture.nextActions && venture.nextActions.length > 0) ? venture.nextActions : generated.venture.nextActions
+        };
+      } catch (e) {
+        console.warn('[pdfReportService] notice hydrating venture evaluation:', e);
+      }
+    }
+
+    const domainData = detectDomain(
+      `${venture.title || ''} ${venture.problem || ''} ${venture.description || ''}`,
+      venture.targetCustomer || venture.targetAudience
+    );
+
     const doc = await PDFDocument.create();
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -148,10 +183,10 @@ export class PdfReportService {
       });
       y -= 16;
 
-      page.drawText(`${subtitle} • Target: ${venture.title} • Generated: ${new Date().toLocaleDateString()}`, {
+      page.drawText(`${subtitle} • Target: ${venture.title} [${domainData.label}] • Generated: ${new Date().toLocaleDateString()}`, {
         x: margin,
         y,
-        size: 9,
+        size: 8.5,
         font,
         color: rgb(0.4, 0.45, 0.5)
       });
@@ -2442,6 +2477,50 @@ export class PdfReportService {
       });
 
       y -= 72;
+
+      // ─────────────────────────────────────────────────────────────
+      // 10. FOUNDER NOTES & REAL-WORLD FEEDBACK
+      // ─────────────────────────────────────────────────────────────
+      const commentsList = venture.founderComments || [];
+      const founderNotes = venture.founderNotes;
+      if (founderNotes || commentsList.length > 0) {
+        drawSectionTitle('10. Founder Commentary & Real-World Idea Notes');
+        checkNewPage(85);
+
+        if (founderNotes) {
+          page.drawRectangle({
+            x: margin,
+            y: y - 36,
+            width: contentWidth,
+            height: 36,
+            color: rgb(0.96, 0.98, 1),
+            borderColor: rgb(0.85, 0.9, 0.98),
+            borderWidth: 0.8
+          });
+          page.drawText('FOUNDER WORKING NOTES:', { x: margin + 10, y: y - 14, size: 7.5, font: fontBold, color: rgb(0.2, 0.35, 0.65) });
+          page.drawText(founderNotes.slice(0, 110), { x: margin + 10, y: y - 26, size: 7.5, font, color: rgb(0.15, 0.2, 0.25) });
+          y -= 44;
+        }
+
+        if (commentsList.length > 0) {
+          for (const c of commentsList.slice(0, 3)) {
+            page.drawRectangle({
+              x: margin,
+              y: y - 24,
+              width: contentWidth,
+              height: 24,
+              color: rgb(0.98, 0.99, 1),
+              borderColor: rgb(0.9, 0.92, 0.96),
+              borderWidth: 0.5
+            });
+            const authorTag = c.author ? `[${c.author}]` : '[Founder Note]';
+            page.drawText(authorTag, { x: margin + 8, y: y - 14, size: 7.5, font: fontBold, color: rgb(0.15, 0.45, 0.85) });
+            page.drawText(c.text.slice(0, 95), { x: margin + 95, y: y - 14, size: 7.5, font, color: rgb(0.2, 0.25, 0.3) });
+            y -= 28;
+          }
+        }
+        y -= 6;
+      }
     }
 
     // Add page numbers

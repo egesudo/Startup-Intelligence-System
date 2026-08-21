@@ -35,6 +35,7 @@ import {
 } from './prompt';
 import { JudgeReportGeminiSchema } from './schema';
 import { executeGeminiWithFallback } from '../../server/services/geminiClient';
+import { detectDomain } from '../../utils/clientFallbackEngine';
 
 export class JudgeAgent implements IJudgeAgent {
   public readonly agentType = 'JUDGE' as const;
@@ -210,21 +211,23 @@ export class JudgeAgent implements IJudgeAgent {
       confidence = 'HIGH';
     }
 
-    const statement = `The venture "${input.ventureTitle}" can establish a viable market position if it validates core customer willingness-to-pay and overcomes incumbent workflow inertia.`;
+    const domain = detectDomain(`${input.ventureTitle} ${input.ventureDescription || ''} ${input.problem || ''}`, input.targetCustomer);
+
+    const statement = `The venture "${input.ventureTitle}" can establish a defensible position in ${domain.label} by validating customer willingness-to-pay and overcoming ${domain.competitors.find(c => c.category === 'STATUS_QUO')?.name || 'manual status-quo inertia'}.`;
     
     const coreVentureThesis: CoreVentureThesis = {
       statement,
       supportingEvidence: [
-        `Market tailwinds identified in ${input.marketGeography || 'target segment'} indicate demand for workflow modernization.`,
-        `Identified archetype (${business?.archetype || 'Workflow SaaS'}) provides scalable unit economics if customer acquisition cost remains bounded.`
+        `Structural sector tailwinds in ${domain.label} (${domain.tailwinds[0] || 'digitization acceleration'}).`,
+        `Identified business archetype (${business?.archetype || domain.defaultArchetype}) provides scalable margins (${domain.marginProfile}).`
       ],
       contradictingEvidence: [
-        `Incumbent competitors possess zero-marginal-cost distribution advantages.`,
-        `Switching friction from existing manual or spreadsheet status-quo represents immediate resistance.`
+        `Incumbents (${domain.competitors[0]?.name || 'market leaders'}) possess distribution scale and bundling power.`,
+        `Switching friction from ${domain.competitors.find(c => c.category === 'STATUS_QUO')?.name || 'status-quo habits'} represents immediate adoption resistance.`
       ],
       criticalAssumptions: [
-        `Target customers perceive sufficient ROI to justify buying a dedicated solution.`,
-        `Direct sales or inbound marketing can acquire customers with payback period under 12 months.`
+        `Target customers perceive sufficient ROI to justify paying for a specialized solution (${domain.typicalPricePoint}).`,
+        `Distribution bottlenecks (${domain.distributionBottlenecks[0] || 'sales cycle'}) can be compressed to maintain cash runway.`
       ],
       confidence: 'HIGH',
       status: recommendation === 'BUILD' ? 'supported' : recommendation === 'REDESIGN' ? 'weakly_supported' : 'partially_supported'

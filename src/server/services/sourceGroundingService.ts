@@ -5,7 +5,7 @@
  * check source credibility, and fetch real-time market updates/benchmarks.
  */
 
-import { getAiClient } from './geminiClient';
+import { executeGeminiWithGrounding, getAiClient } from './geminiClient';
 import { SourceGroundingVerificationResult, GroundedWebSource } from '../../types/domain';
 
 export interface VerifySourceParams {
@@ -57,8 +57,7 @@ Return ONLY a valid JSON object matching this schema (do not wrap in markdown or
   "suggestedFollowUpQuery": "Recommended search query for additional deep diligence"
 }`;
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3.7-flash',
+        const geminiResult = await executeGeminiWithGrounding({
           contents: prompt,
           config: {
             tools: [{ googleSearch: {} }],
@@ -66,9 +65,8 @@ Return ONLY a valid JSON object matching this schema (do not wrap in markdown or
           }
         });
 
-        const rawText = response.text || '';
-        const candidate = response.candidates?.[0];
-        const groundingMetadata = candidate?.groundingMetadata;
+        const rawText = geminiResult.text || '';
+        const groundingMetadata = geminiResult.groundingMetadata;
 
         // Extract grounded web sources from Google Search metadata
         const groundedWebSources: GroundedWebSource[] = [];

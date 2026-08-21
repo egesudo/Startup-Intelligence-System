@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Venture, CriticalQuestion, Decision, NextAction } from '../types/domain';
 import { VentureAnalysisState } from '../types/state';
 import { createLocalVenture, generateLocalEvaluatedVenture } from '../utils/clientFallbackEngine';
+import { fetchWithExponentialBackoff, RetryConfig } from '../utils/retryWithBackoff';
 import { 
   analysisCacheService, 
   CachedAnalysisEntry, 
@@ -69,14 +70,16 @@ interface VentureContextType {
     overrideReason?: string;
   }) => Promise<void>;
   toggleAction: (actionId: string) => Promise<void>;
+  updateFounderNotes: (notes: string) => Promise<void>;
+  addFounderComment: (comment: { text: string; author?: string; category?: 'idea_pivot' | 'pricing_feedback' | 'market_insight' | 'general' }) => Promise<void>;
   refreshVentures: () => Promise<void>;
 }
 
 /**
- * Enhanced API Fetch client with granular error & metadata logging
- * Specifically pinpoints 500 error causes, request metadata, and upstream service failures.
+ * Enhanced API Fetch client with Exponential Backoff Retry and granular error & metadata logging
+ * Handles connection timeouts during longer report generation and output synthesis.
  */
-async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+async function apiFetch(input: string, init?: RequestInit, customRetryConfig?: Partial<RetryConfig>): Promise<Response> {
   const startTime = Date.now();
   const method = init?.method || 'GET';
   const url = input;
@@ -108,8 +111,22 @@ async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
     payloadSummary
   };
 
+  // Determine retry configuration based on call criticality and duration
+  const isReportOrAnalysis = url.includes('/analyze') || url.includes('/intake') || url.includes('/pdf') || url.includes('/questions');
+  const retryConfig: Partial<RetryConfig> = {
+    maxRetries: isReportOrAnalysis ? 3 : 2,
+    initialDelayMs: 1000,
+    maxDelayMs: 8000,
+    timeoutMs: isReportOrAnalysis ? 45000 : 25000,
+    retryOnStatus: [408, 429, 500, 502, 503, 504],
+    onRetry: (attempt, err, nextDelay) => {
+      console.warn(`[apiFetch] Retrying ${method} ${url} (Attempt ${attempt}) in ${Math.round(nextDelay)}ms due to: ${err instanceof Error ? err.message : 'Server error'}`);
+    },
+    ...customRetryConfig
+  };
+
   try {
-    const response = await fetch(input, init);
+    const response = await fetchWithExponentialBackoff(input, init, retryConfig);
     const durationMs = Date.now() - startTime;
 
     // Granular logging when status code is 500 or any error >= 400
@@ -828,6 +845,63 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const updateFounderNotes = async (notes: string) => {
+    if (!activeVenture) return;
+    try {
+      setActiveVenture(prev => prev ? { ...prev, founderNotes: notes } : null);
+      setVentures(prev => prev.map(v => v.id === activeVenture.id ? { ...v, founderNotes: notes } : v));
+      // Try background update to server if available
+      try {
+        await apiFetch(`/api/ventures/${activeVenture.id}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notes })
+        });
+      } catch {
+        // Local persist fallback is already applied
+      }
+    } catch (err: any) {
+      console.warn('[VentureContext] updateFounderNotes notice:', err?.message || err);
+    }
+  };
+
+  const addFounderComment = async (comment: { text: string; author?: string; category?: 'idea_pivot' | 'pricing_feedback' | 'market_insight' | 'general' }) => {
+    if (!activeVenture || !comment.text?.trim()) return;
+    try {
+      const newComment = {
+        id: `com_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        author: comment.author || 'Founder',
+        text: comment.text.trim(),
+        category: comment.category || 'general',
+        createdAt: new Date().toISOString()
+      };
+      
+      setActiveVenture(prev => {
+        if (!prev) return null;
+        const existing = prev.founderComments || [];
+        return { ...prev, founderComments: [newComment, ...existing] };
+      });
+
+      setVentures(prev => prev.map(v => {
+        if (v.id !== activeVenture.id) return v;
+        const existing = v.founderComments || [];
+        return { ...v, founderComments: [newComment, ...existing] };
+      }));
+
+      try {
+        await apiFetch(`/api/ventures/${activeVenture.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newComment)
+        });
+      } catch {
+        // Local state already updated
+      }
+    } catch (err: any) {
+      console.warn('[VentureContext] addFounderComment notice:', err?.message || err);
+    }
+  };
+
   return (
     <VentureContext.Provider
       value={{
@@ -857,6 +931,8 @@ export const VentureProvider: React.FC<{ children: React.ReactNode }> = ({ child
         recordDecision,
         submitDecision,
         toggleAction,
+        updateFounderNotes,
+        addFounderComment,
         refreshVentures: fetchVentures
       }}
     >

@@ -8,6 +8,8 @@
 
 import { generateClientReportPdf } from './clientPdfGenerator';
 import { Venture } from '../types/domain';
+import { fetchWithExponentialBackoff } from './retryWithBackoff';
+import { generateLocalEvaluatedVenture } from './clientFallbackEngine';
 
 export interface FetchPdfBlobResult {
   blobUrl: string;
@@ -17,29 +19,31 @@ export interface FetchPdfBlobResult {
 
 /**
  * Attempts to retrieve locally stored venture state for offline/client fallback
+ * Strictly isolates lookups to the requested ventureId to guarantee project-specific data.
  */
 function findLocalVenture(ventureId: string): Partial<Venture> | null {
   if (typeof window === 'undefined') return null;
   try {
-    // 1. Try local storage ventures
+    // 1. Try local storage ventures by exact ID
     const venturesRaw = localStorage.getItem('ai_startup_ventures');
     if (venturesRaw) {
       const ventures: Venture[] = JSON.parse(venturesRaw);
-      const found = ventures.find(v => v.id === ventureId);
+      const found = ventures.find(v => v && v.id === ventureId);
       if (found) return found;
-      if (ventures.length > 0) return ventures[0];
     }
-    // 2. Try analysis cache
+
+    // 2. Try analysis cache by exact ID or matching key
     const cacheRaw = localStorage.getItem('ai_startup_analysis_cache_v1');
     if (cacheRaw) {
       const cacheEntries = JSON.parse(cacheRaw);
-      const values = Object.values(cacheEntries);
-      if (values.length > 0) {
-        const entry: any = values[0];
+      if (cacheEntries[ventureId]) {
+        const entry: any = cacheEntries[ventureId];
         return {
           id: ventureId,
-          title: entry.title || 'Venture',
+          title: entry.title || entry.rawIdeaText || 'Venture',
           problem: entry.rawIdeaText || entry.title,
+          targetAudience: entry.targetAudience,
+          businessModel: entry.businessModel,
           researchReport: entry.researchReport,
           businessReport: entry.businessReport,
           redTeamReport: entry.redTeamReport,
@@ -48,11 +52,40 @@ function findLocalVenture(ventureId: string): Partial<Venture> | null {
           nextActions: entry.nextActions
         };
       }
+
+      // Check entries by entry.venture?.id or entry.id
+      for (const key of Object.keys(cacheEntries)) {
+        const entry: any = cacheEntries[key];
+        if (entry && (entry.id === ventureId || entry.ventureId === ventureId || entry.venture?.id === ventureId)) {
+          return entry.venture || {
+            id: ventureId,
+            title: entry.title || entry.rawIdeaText || 'Venture',
+            problem: entry.rawIdeaText || entry.title,
+            targetAudience: entry.targetAudience,
+            businessModel: entry.businessModel,
+            researchReport: entry.researchReport,
+            businessReport: entry.businessReport,
+            redTeamReport: entry.redTeamReport,
+            judgeReport: entry.judgeReport,
+            score: entry.score,
+            nextActions: entry.nextActions
+          };
+        }
+      }
+    }
+
+    // 3. Try current active venture in sessionStorage
+    const activeRaw = sessionStorage.getItem('ai_startup_active_venture');
+    if (activeRaw) {
+      const active = JSON.parse(activeRaw);
+      if (active && (active.id === ventureId || !ventureId)) {
+        return active;
+      }
     }
   } catch (e) {
     console.warn('[pdfDownloader] notice reading local venture:', e);
   }
-  return { id: ventureId, title: 'Venture' };
+  return null;
 }
 
 /**
@@ -67,19 +100,69 @@ export async function fetchPdfBlob(
 ): Promise<FetchPdfBlobResult> {
   const queryParam = isDownload ? '?download=true' : '';
   const url = `/api/ventures/${ventureId}/pdf/${reportType}${queryParam}`;
-  const targetVenture = ventureData || findLocalVenture(ventureId) || { id: ventureId };
+  const baseVenture = ventureData || findLocalVenture(ventureId) || { id: ventureId };
+  let targetVenture: Partial<Venture> = { ...baseVenture };
+
+  if (!targetVenture.researchReport || !targetVenture.businessReport || !targetVenture.redTeamReport || !targetVenture.judgeReport) {
+    try {
+      const generated = generateLocalEvaluatedVenture({
+        id: targetVenture.id || ventureId,
+        title: targetVenture.title || 'Startup Venture',
+        problem: targetVenture.problem || targetVenture.title || 'Target customer workflow bottleneck',
+        targetAudience: targetVenture.targetAudience,
+        businessModel: targetVenture.businessModel,
+        status: 'evaluated',
+        createdAt: targetVenture.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...targetVenture
+      } as any);
+      targetVenture = {
+        ...generated.venture,
+        ...targetVenture,
+        researchReport: targetVenture.researchReport || generated.venture.researchReport,
+        businessReport: targetVenture.businessReport || generated.venture.businessReport,
+        redTeamReport: targetVenture.redTeamReport || generated.venture.redTeamReport,
+        judgeReport: targetVenture.judgeReport || generated.venture.judgeReport,
+        score: targetVenture.score || generated.venture.score,
+        nextActions: (targetVenture.nextActions && targetVenture.nextActions.length > 0) ? targetVenture.nextActions : generated.venture.nextActions
+      };
+    } catch (e) {
+      console.warn('[pdfDownloader] notice hydrating venture evaluation:', e);
+    }
+  }
 
   try {
-    // Attempt POST with full venture payload first so server generates the full rich layout
-    let response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ venture: targetVenture, download: isDownload })
-    }).catch(() => null);
+    // Attempt POST with full venture payload first with exponential backoff and connection timeout protection
+    let response = await fetchWithExponentialBackoff(
+      url,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ venture: targetVenture, download: isDownload })
+      },
+      {
+        maxRetries: 3,
+        initialDelayMs: 1000,
+        maxDelayMs: 8000,
+        timeoutMs: 35000,
+        onRetry: (attempt, err, delay) => {
+          console.warn(`[pdfDownloader] PDF generation retry #${attempt} for ${reportType} in ${Math.round(delay)}ms...`);
+        }
+      }
+    ).catch(() => null);
 
-    // If POST not successful, try standard GET
+    // If POST not successful, try GET with exponential backoff
     if (!response || !response.ok) {
-      response = await fetch(url).catch(() => null);
+      response = await fetchWithExponentialBackoff(
+        url,
+        undefined,
+        {
+          maxRetries: 2,
+          initialDelayMs: 1000,
+          maxDelayMs: 6000,
+          timeoutMs: 30000
+        }
+      ).catch(() => null);
     }
 
     if (response && response.ok) {
@@ -100,7 +183,7 @@ export async function fetchPdfBlob(
       };
     }
   } catch (err) {
-    console.warn('[pdfDownloader] Server PDF endpoint unavailable, using high-fidelity client generator:', err);
+    console.warn('[pdfDownloader] Server PDF endpoint unavailable after retries, using high-fidelity client generator:', err);
   }
 
   // High-fidelity client-side PDF fallback generator

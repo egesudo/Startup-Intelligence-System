@@ -1212,4 +1212,14 @@ export interface Venture {
   agentRunRecords?: AgentRunRecord[];
   agentChainStatus?: AgentChainStatus;
   evidenceVerificationReport?: EvidenceVerificationReport;
+  
+  // User annotations & feedback on the venture idea
+  founderNotes?: string;
+  founderComments?: Array<{
+    id: string;
+    author: string;
+    text: string;
+    category?: 'idea_pivot' | 'pricing_feedback' | 'market_insight' | 'general';
+    createdAt: string;
+  }>;
 }

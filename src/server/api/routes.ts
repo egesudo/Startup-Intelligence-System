@@ -640,13 +640,18 @@ const handlePdfGeneration = async (req: any, res: any) => {
     if (!venture) {
       const allVentures = await ventureService.listVentures();
       if (allVentures.length > 0) {
-        venture = allVentures.find(v => v.id === id) || allVentures[0];
+        venture = allVentures.find(v => v.id === id);
       }
     }
     if (!venture) {
+      const requestedTitle = req.body?.ventureTitle || req.body?.title || req.query.title || 'Startup Venture';
+      const requestedProblem = req.body?.problem || req.body?.description || requestedTitle;
       venture = {
         id,
-        title: req.body?.ventureTitle || 'Venture',
+        title: requestedTitle,
+        problem: requestedProblem,
+        targetAudience: req.body?.targetAudience || '',
+        businessModel: req.body?.businessModel || '',
         status: 'evaluated',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

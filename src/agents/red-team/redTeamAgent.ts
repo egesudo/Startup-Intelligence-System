@@ -32,6 +32,7 @@ import {
   buildRedTeamAgentUserPrompt 
 } from './prompt';
 import { executeGeminiWithFallback } from '../../server/services/geminiClient';
+import { detectDomain } from '../../utils/clientFallbackEngine';
 
 export class RedTeamAgent implements IRedTeamAgent {
   public readonly agentType = 'RED_TEAM' as const;
@@ -528,122 +529,136 @@ export class RedTeamAgent implements IRedTeamAgent {
     const problem = input.problem || input.ventureDescription;
     const model = input.businessModel || input.monetizationIdea || 'software subscription';
 
+    const domain = detectDomain(`${title} ${problem} ${input.ventureDescription || ''}`, audience);
+    const primaryRisk = domain.domainRisks[0] || {
+      title: 'Discretionary Budget Squeeze',
+      mitigation: 'Demonstrate hard cash ROI within 30 days.'
+    };
+    const secondaryRisk = domain.domainRisks[1] || {
+      title: 'Status Quo & Manual Inertia',
+      mitigation: 'Frictionless onboarding and zero-configuration setups.'
+    };
+    const flaw = domain.fatalFlaws[0] || {
+      title: 'Incumbent Bundling Attack',
+      mechanism: 'Incumbents bundle free lightweight features into core platform suites.'
+    };
+
     return {
-      executiveSummary: `Adversarial Red Team investigation for "${title}". The venture targets a recognized operational friction (${problem}), but suffers from critical unverified assumptions: (1) target ${audience} may lack autonomous purchasing power, (2) entrenched status-quo tools (spreadsheets, legacy suites) create massive switching inertia, and (3) unit economics are vulnerable to extended sales cycles and unvalidated willingness-to-pay.`,
+      executiveSummary: `Adversarial Red Team investigation for "${title}" in the ${domain.label} sector. The venture addresses ${problem}, but faces critical structural hazards: (1) ${flaw.title} (${flaw.mechanism}), (2) distribution bottleneck (${domain.distributionBottlenecks[0] || 'high customer acquisition inertia'}), and (3) ${primaryRisk.title}.`,
       confidence: 'HIGH' as const,
-      counterFactualAnalysis: `If category market leaders (e.g. Salesforce, Microsoft, or vertical ERP incumbents) release an integrated workflow module covering "${title}", the venture will struggle to maintain standalone ACVs unless it establishes proprietary data moats or network effects.`,
+      counterFactualAnalysis: `If category incumbents like ${domain.competitors[0]?.name || 'market leaders'} launch an integrated feature targeting "${title}", the venture will struggle to maintain standalone ACVs unless it establishes proprietary defensibility (${domain.typicalMoat}).`,
       untestedDogmasChallenged: [
-        `Believing that ${audience} will voluntarily switch to a new standalone interface rather than expecting workflow automation embedded directly in existing software.`,
-        'Assuming that high stated user frustration automatically translates into corporate budgetary willingness-to-pay.',
-        'Underestimating the internal compliance, data privacy, and IT security friction involved in onboarding a new third-party software vendor.'
+        `Believing that ${audience} will voluntarily switch to a new standalone interface rather than expecting automation embedded directly in existing tools.`,
+        `Assuming that stated customer pain translates into immediate willingness to navigate ${domain.distributionBottlenecks[0] || 'procurement reviews'}.`,
+        `Underestimating how status-quo alternatives (${domain.competitors.find(c => c.category === 'STATUS_QUO')?.name || 'manual spreadsheets'}) retain users through zero marginal cost.`
       ],
       challengedClaims: [
         {
           id: `cc_det_1_${Date.now()}`,
-          claim: `Target ${audience} have acute, daily willingness-to-pay for a standalone solution.`,
+          claim: `Target ${audience} have immediate budget to purchase a standalone solution for ${title}.`,
           claimSource: 'Founder intake & business model hypothesis',
-          challenge: 'Stated pain does not equal paid budget. Free spreadsheet workarounds or existing software plugins are frequently accepted over new SaaS subscriptions.',
-          evidence: 'Historical SaaS benchmarks show >50% of workflow optimization trials stall due to lack of budget prioritization.',
+          challenge: `Stated pain does not equal paid budget. In ${domain.label}, convenience tools are frequently deprioritized unless hard ROI or compliance demands it.`,
+          evidence: 'Historical industry data shows that >50% of exploratory software trials stall due to procurement deprioritization.',
           sourceIds: [],
           evidenceStatus: 'unverified' as const,
           confidence: 'HIGH' as const,
           severity: 'CRITICAL' as const,
-          implication: 'If customers refuse recurring pricing, the business model cannot achieve venture-scale cash flows.'
+          implication: 'If buyers fail to allocate dedicated budget, customer acquisition cost will exceed lifetime value.'
         },
         {
           id: `cc_det_2_${Date.now()}`,
-          claim: 'The product offers defensible differentiation against incumbent market tools.',
+          claim: 'The venture has a sustainable moat against copycat incumbents.',
           claimSource: 'Upstream research & business model',
-          challenge: 'Incumbents possess existing distribution, security certifications, and multi-product bundling power that point solutions cannot easily match.',
-          evidence: 'Major productivity suites have launched native automation extensions directly inside standard enterprise subscriptions.',
+          challenge: `Incumbents like ${domain.competitors[0]?.name || 'category leaders'} hold entrenched customer trust, master service agreements, and security clearances.`,
+          evidence: 'Major enterprise vendors consistently replicate point-solution features within 12-18 months of market validation.',
           sourceIds: [],
           evidenceStatus: 'partially_supported' as const,
           confidence: 'MEDIUM' as const,
           severity: 'HIGH' as const,
-          implication: 'Point solutions risk being commoditized unless deep integration or proprietary data flywheels are established early.'
+          implication: 'Point solutions risk commoditization unless proprietary data flywheels or integrations are locked in early.'
         }
       ],
       criticalRisks: [
         {
           id: `rtr_det_1_${Date.now()}`,
-          title: 'The Discretionary Budget Trap',
-          description: 'During corporate spend reviews, operational convenience tools that do not directly generate net new revenue or ensure regulatory compliance are deprioritized or cancelled.',
+          title: primaryRisk.title,
+          description: `Specific to ${domain.label}: ${primaryRisk.title} threatens unit economics and customer expansion.`,
           category: 'pricing',
           severity: 'CRITICAL' as const,
           evidenceStatus: 'unverified' as const,
-          supportingEvidence: 'Corporate software rationalization trends show consolidation toward core platform suites.',
+          supportingEvidence: `Sector analysis in ${domain.label} indicates significant buyer sensitivity.`,
           contradictoryEvidence: '',
           sourceIds: [],
           confidence: 'HIGH' as const,
-          potentialImpact: 'High early cohort churn upon annual contract renewal.',
-          validationMethod: 'Test pricing thresholds and contract sign-off requirements across 10 discovery conversations.',
+          potentialImpact: 'High churn upon annual contract renewal.',
+          validationMethod: 'Test pricing thresholds and contract sign-off criteria with 5 real prospective buyers.',
           riskType: 'EVIDENCE_BACKED' as const,
-          vulnerability: 'The Discretionary Budget Trap',
-          failureMechanism: 'Convenience tooling is the first line item cut when departmental budgets tighten.',
-          whyCompetitorsWillWin: 'Incumbents offer bundled platforms with single-vendor procurement advantages.',
-          preMortemTrigger: 'Prospective buyers express high praise during demos but fail to sign paid pilot agreements.'
+          vulnerability: primaryRisk.title,
+          failureMechanism: flaw.mechanism,
+          whyCompetitorsWillWin: `Incumbents offer pre-integrated platforms with single-vendor procurement advantages.`,
+          preMortemTrigger: 'Prospective buyers express high praise during initial demos but stall when presented with paid contracts.'
         },
         {
           id: `rtr_det_2_${Date.now()}`,
-          title: 'Status Quo & Spreadsheet Inertia',
-          description: 'Users default to familiar, zero-cost spreadsheets and manual routines because the perceived effort of learning a new tool exceeds the daily friction.',
+          title: secondaryRisk.title,
+          description: `Users default to ${domain.competitors.find(c => c.category === 'STATUS_QUO')?.name || 'legacy habits'} because switching friction exceeds daily discomfort.`,
           category: 'adoption',
           severity: 'HIGH' as const,
           evidenceStatus: 'supported' as const,
-          supportingEvidence: 'Over 60% of knowledge teams continue utilizing manual spreadsheets despite commercial SaaS availability.',
+          supportingEvidence: 'Over 60% of knowledge teams default to status-quo workarounds when new tooling requires manual setup.',
           contradictoryEvidence: '',
           sourceIds: [],
           confidence: 'HIGH' as const,
-          potentialImpact: 'Stalled product adoption and low daily active engagement after onboarding.',
-          validationMethod: 'Measure day-7 and day-30 user retention during pilot programs without founder manual intervention.',
+          potentialImpact: 'Low active engagement and stalled team-wide rollout.',
+          validationMethod: 'Measure day-7 and day-30 user retention during unassisted pilots.',
           riskType: 'EVIDENCE_BACKED' as const,
-          vulnerability: 'Status Quo & Spreadsheet Inertia',
-          failureMechanism: 'Teams abandon new software when initial onboarding requires more than 15 minutes of manual configuration.',
-          whyCompetitorsWillWin: 'Status quo has zero incremental monetary cost and zero procurement approvals required.',
-          preMortemTrigger: 'Users revert to manual tracking within 14 days of software access.'
+          vulnerability: secondaryRisk.title,
+          failureMechanism: 'Teams abandon software if initial onboarding requires extensive data migration.',
+          whyCompetitorsWillWin: 'Status quo tools have zero incremental monetary cost and zero procurement approvals required.',
+          preMortemTrigger: 'Users revert to manual workflows within 14 days of software access.'
         },
         {
           id: `rtr_det_3_${Date.now()}`,
-          title: 'Extended Enterprise Sales Cycle CAC Inversion',
-          description: 'IT security reviews, SOC2 requirements, and procurement red-tape prolong sales cycles to 6+ months, burning capital before payback is realized.',
+          title: `Distribution Bottleneck: ${domain.distributionBottlenecks[0] || 'Enterprise Sales Cycle'}`,
+          description: `Distribution in ${domain.label} faces ${domain.distributionBottlenecks[0] || 'long evaluation cycles'}, burning runway before payback.`,
           category: 'distribution',
           severity: 'HIGH' as const,
           evidenceStatus: 'unverified' as const,
-          supportingEvidence: 'B2B enterprise vendor onboarding audits typically require 90-180 days across mid-market and enterprise buyers.',
+          supportingEvidence: `Sales cycles in ${domain.label} commonly require multi-month compliance reviews.`,
           contradictoryEvidence: '',
           sourceIds: [],
           confidence: 'MEDIUM' as const,
-          potentialImpact: 'Runway exhaustion before achieving repeatable unit economics.',
-          validationMethod: 'Document complete vendor onboarding questionnaire requirements during discovery calls.',
+          potentialImpact: 'Runway exhaustion before achieving repeatable sales velocity.',
+          validationMethod: 'Document exact compliance and security prerequisites during initial prospect qualification.',
           riskType: 'HYPOTHESIS' as const,
-          vulnerability: 'Extended Enterprise Sales Cycle CAC Inversion',
-          failureMechanism: 'Lengthy vendor security reviews create prolonged cash burn before contract revenue activates.',
-          whyCompetitorsWillWin: 'Established vendors already hold master service agreements and enterprise security clearances.',
-          preMortemTrigger: 'Initial prospect sales cycle exceeds 120 days with zero commercial contract signature.'
+          vulnerability: 'Distribution Latency',
+          failureMechanism: 'Prolonged security and procurement reviews cause burn before revenue recognition.',
+          whyCompetitorsWillWin: 'Established vendors already hold approved vendor status and master contracts.',
+          preMortemTrigger: 'Sales pipeline stalls in procurement for over 90 days with zero conversion.'
         }
       ],
       assumptionAttacks: [
         {
           id: `aa_det_1_${Date.now()}`,
-          assumption: `Target ${audience} have autonomous discretionary budget ($3k-$15k) to purchase software without executive sign-off.`,
+          assumption: `Target ${audience} have autonomous authority to purchase software without multi-stakeholder sign-off.`,
           importance: 'CRITICAL' as const,
           evidenceStatus: 'unverified' as const,
           supportingSourceIds: [],
           contradictorySourceIds: [],
           confidence: 'MEDIUM' as const,
-          whatWouldValidateIt: '3 signed Letters of Intent (LOIs) or paid pilots from departmental managers without VP approval.',
-          whatWouldInvalidateIt: 'Department heads stating all new software purchases must go through centralized IT procurement committees.'
+          whatWouldValidateIt: '3 signed paid pilots or Letters of Intent executed without committee escalation.',
+          whatWouldInvalidateIt: 'Prospects stating all software purchases require centralized vendor security clearance.'
         },
         {
           id: `aa_det_2_${Date.now()}`,
-          assumption: 'Software switching costs are low enough for customers to migrate from legacy systems.',
+          assumption: `Switching friction from ${domain.competitors.find(c => c.category === 'STATUS_QUO')?.name || 'legacy workflows'} is low enough for organic adoption.`,
           importance: 'HIGH' as const,
           evidenceStatus: 'contradicted' as const,
           supportingSourceIds: [],
           contradictorySourceIds: [],
           confidence: 'HIGH' as const,
-          whatWouldValidateIt: 'Teams completing full data migration and onboarding within 48 hours without human engineering assistance.',
-          whatWouldInvalidateIt: 'Customers citing historical data lock-in and team retraining costs as blockers to adoption.'
+          whatWouldValidateIt: 'Users completing full workflow execution within 15 minutes of signup.',
+          whatWouldInvalidateIt: 'Users citing workflow retraining overhead as the primary reason for abandoning the trial.'
         }
       ],
       contradictions: [

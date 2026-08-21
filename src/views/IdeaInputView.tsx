@@ -83,8 +83,9 @@ export const IdeaInputView: React.FC = () => {
       });
 
       if (newVenture && newVenture.id) {
-        // If no questions generated, run analysis directly
-        if (!newVenture.criticalQuestions || newVenture.criticalQuestions.length === 0) {
+        // If no clarifying questions exist, proceed directly to analysis
+        const questionsList = newVenture.questions || [];
+        if (questionsList.length === 0) {
           await runAnalysis(newVenture.id);
         }
       }
@@ -96,8 +97,8 @@ export const IdeaInputView: React.FC = () => {
   const isBusy = isProcessing || isIntaking || isAnalyzing;
 
   // Check if active venture is in clarifying stage
-  const isClarifying = activeVenture?.status === 'clarifying' && activeVenture.criticalQuestions && activeVenture.criticalQuestions.length > 0;
-  const unansweredQuestions = activeVenture?.criticalQuestions?.filter(q => !q.isAnswered && !q.isSkipped) || [];
+  const isClarifying = activeVenture?.status === 'clarifying' && !!activeVenture.questions && activeVenture.questions.length > 0;
+  const unansweredQuestions = activeVenture?.questions?.filter(q => q.status === 'PENDING' || (!q.answer && q.status !== 'SKIPPED')) || [];
   const currentQuestion = unansweredQuestions[0];
 
   const handleAnswerSubmit = async () => {
